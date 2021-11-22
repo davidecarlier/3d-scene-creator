@@ -24,5 +24,24 @@
   "dependencies": {
     "gsap": "^3.8.0",
     "three": "^0.134.0"
-  }
+  },
+  "description": "Easily add 3D interactive scenes to your website.",
+  "directories": {
+    "example": "examples"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidecarlier/3d-scene-creator.git"
+  },
+  "keywords": [
+    "threejs",
+    "3d",
+    "orbitcontrols"
+  ],
+  "author": "Davide Carlier",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/davidecarlier/3d-scene-creator/issues"
+  },
+  "homepage": "https://github.com/davidecarlier/3d-scene-creator#readme"
 }
