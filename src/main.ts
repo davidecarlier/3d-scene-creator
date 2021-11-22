@@ -17,7 +17,7 @@ class SceneCreator {
   additionalRenderFn: Function | undefined;
   stopLoop: boolean = false;
   scale: number = 1;
-  animating: boolean = false;
+  animating: number = 0;
 
   constructor(container?: HTMLElement, scale?: number, camPos?: THREE.Vector3, targetPos?: THREE.Vector3) {
 
@@ -92,7 +92,11 @@ class SceneCreator {
     return this;
   }
 
-  setadditionalRenderFn(fn: Function) {
+  /**
+   * Set a callback function 
+   * for the renderer
+   */
+  setAdditionalRenderFn(fn: Function) {
     this.additionalRenderFn = fn;
   }
 
@@ -103,16 +107,16 @@ class SceneCreator {
     }
   }
 
-  changeModelColor(name: string, color: string | number, duration = 2) {
+  animateModelColor(name: string, color: string | number, duration = 2) {
     const obj = this.scene.getObjectByName(name);
     if (obj) {
       let rgbColor = new THREE.Color(color);
       obj.traverse((mesh) => {
         if (mesh instanceof THREE.Mesh) {
-          this.animating = true;
+          this.animating++;
           gsap.to(mesh.material.color, {
             duration, r: rgbColor.r, b: rgbColor.b, g: rgbColor.g, onComplete: () => {
-              this.animating = false;
+              this.animating--;
             }
           })
         }
@@ -121,22 +125,38 @@ class SceneCreator {
     return this;
   }
 
-  changeModelOpacity(name: string, value: number, duration = 2) {
+  animateModelOpacity(name: string, value: number, duration = 2) {
     const obj = this.scene.getObjectByName(name)
     if (obj) {
       obj.traverse((mesh) => {
         if (mesh instanceof THREE.Mesh) {
           mesh.material.transparent = true;
           mesh.material.needsUpdate = true;
-          gsap.to(mesh.material, duration, {
+          this.animating++;
+
+          gsap.to(mesh.material, {
+            duration,
             opacity: value,
-            oncomplete: () => {
-              //mesh.material.transparent = value < 1
+            onComplete: () => {
+              this.animating++;
               mesh.material.needsUpdate = true;
             }
           })
           mesh.material.needsUpdate = true;
         }
+      });
+    }
+    return this;
+  }
+
+  animateModelPosition(name: string, newPosition: THREE.Vector3, duration = 2) {
+    const obj = this.scene.getObjectByName(name)
+    if (obj) {
+      gsap.to(obj.position, {
+        duration,
+        x: newPosition.x,
+        y: newPosition.y,
+        z: newPosition.z
       });
     }
     return this;
@@ -165,7 +185,7 @@ class SceneCreator {
     return this;
   }
 
-  addSkybox(url?: string, color?: string) {
+  addSkybox(url?: string, color?: string, name?: string) {
     var sphereGeom = new THREE.SphereGeometry(1000 * this.scale, 60, 60);
     sphereGeom.scale(-1, 1, 1)
     let sphereMaterial;
@@ -182,7 +202,9 @@ class SceneCreator {
       }
       sphereMaterial = new THREE.MeshStandardMaterial({ color });
     }
-    this.scene.add(new THREE.Mesh(sphereGeom, sphereMaterial));
+    let skybox = new THREE.Mesh(sphereGeom, sphereMaterial);
+    skybox.name = name ? name : 'skybox';
+    this.scene.add(skybox);
     return this;
   }
 
