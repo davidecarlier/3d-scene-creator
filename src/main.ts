@@ -118,6 +118,7 @@ class SceneCreator {
         }
       });
     }
+    return this;
   }
 
   changeModelOpacity(name: string, value: number, duration = 2) {
@@ -138,6 +139,7 @@ class SceneCreator {
         }
       });
     }
+    return this;
   }
 
   attachRenderer(container: HTMLElement) {
@@ -271,31 +273,38 @@ class SceneCreator {
     return this
   }
 
+  loadModel(url: string, loader?: any, callback?: Function) {
+    if (!loader) {
+      loader = new THREE.ObjectLoader();
+    }
+
+    loader.load(url, (obj: THREE.Object3D) => {
+      this.scene.add(obj);
+      if (typeof callback === 'function') {
+        callback(obj);
+      }
+    }
+    );
+    return this;
+  }
+
   loadScene(url: string, callback?: Function) {
     var loader = new THREE.ObjectLoader();
 
-    loader.load(
-      // resource URL
-      url,
-      // onLoad callback
-      (obj) => {
-        if (obj instanceof THREE.Scene) {
-          // Add the loaded object to the scene
-          this.scene = obj;
-        } else {
-          console.log('Loaded element was not a THREE.js scene')
-        }
-        if (typeof callback === 'function') {
-          callback();
-        }
-      },
-
-      // onProgress callback
+    loader.load(url, (obj) => {
+      if (obj instanceof THREE.Scene) {
+        // Add the loaded object to the scene
+        this.scene = obj;
+      } else {
+        console.log('Loaded element was not a THREE.js scene')
+      }
+      if (typeof callback === 'function') {
+        callback(obj);
+      }
+    },
       function (xhr) {
         console.log(xhr.loaded / xhr.total * 100);
       },
-
-      // onError callback
       function (err) {
         console.error('An error happened', err);
       }
