@@ -14,6 +14,7 @@
   "main": "dist/3d-scene-creator.es.js",
   "files": [
     "dist/3d-scene-creator.es.js",
+    "dist/3d-scene-creator.es.js.d.ts",
     "dist/3d-scene-creator.um.js",
     "examples",
     "LICENSE",
