@@ -6,18 +6,15 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 class SceneCreator {
   scene: THREE.Scene;
   renderer: THREE.WebGLRenderer;
+  container: HTMLElement | undefined;
   cWidth: number;
   cHeight: number;
   camera: THREE.PerspectiveCamera;
   initialCamPos: THREE.Vector3;
   initialTargetPos: THREE.Vector3;
-  currentPoi: null;
-  renderCallback: null;
-  prevCam: THREE.Vector3;
-  poiCallback: null;
+  prevCamPos: THREE.Vector3;
   controls: OrbitControls | undefined;
   additionalRenderFn: Function | undefined;
-  container: HTMLElement | undefined;
   stopLoop: boolean = false;
   scale: number = 1;
   animating: boolean = false;
@@ -47,7 +44,9 @@ class SceneCreator {
     } else {
       this.initialCamPos = new THREE.Vector3(10 * this.scale, 10 * this.scale, 10 * this.scale)
     }
-    this.prevCam = new THREE.Vector3(1, 1, 1)
+
+    // to render at least first frame
+    this.prevCamPos = new THREE.Vector3(this.initialCamPos.x + 1, 1, 1)
 
     if (targetPos) {
       this.initialTargetPos = targetPos
@@ -61,9 +60,6 @@ class SceneCreator {
     this.camera.lookAt(cameraTarget);
 
 
-    this.currentPoi = null;
-    this.renderCallback = null;
-    this.poiCallback = null;
     this.resizeListener();
     if (container) {
       this.attachRenderer(container);
@@ -230,31 +226,19 @@ class SceneCreator {
     const camera = this.camera;
 
     if (
-      camera.position.x !== this.prevCam.x ||
-      camera.position.y !== this.prevCam.y ||
-      camera.position.z !== this.prevCam.z ||
+      camera.position.x !== this.prevCamPos.x ||
+      camera.position.y !== this.prevCamPos.y ||
+      camera.position.z !== this.prevCamPos.z ||
       this.animating) {
       renderer.render(scene, camera);
     }
-    this.prevCam = this.camera.position.clone();
+    this.prevCamPos = this.camera.position.clone();
     if (this.additionalRenderFn) this.additionalRenderFn()
     if (this.controls) this.controls.update();
   }
 
-  resetCamera() {
+  resetCameraPosition() {
     this.moveCamera(this.initialCamPos, this.initialTargetPos)
-  }
-  resetCameraRotation() {
-    gsap.to(this.camera.rotation, {
-      duration: 1,
-      y: 0
-    });
-  }
-  resetSceneRotation() {
-    gsap.to(this.scene.rotation, {
-      duration: 1,
-      y: 0
-    });
   }
 
   moveCamera(newPosCam: THREE.Vector3, newPosTarget: THREE.Vector3, callback?: Function) {
