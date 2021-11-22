@@ -102,16 +102,8 @@ class SceneCreator {
 
   resetSizes() {
     if (this.container) {
-      //allunghiamo il canvas per decentrare la scena
-
-      if (window.innerWidth > 1024) {
-        this.cWidth = this.container.clientWidth + this.container.clientWidth / 4;
-      } else {
-        this.cWidth = this.container.clientWidth;
-      }
-
+      this.cWidth = this.container.clientWidth;
       this.cHeight = this.container.clientHeight;
-
     }
   }
 
@@ -162,8 +154,8 @@ class SceneCreator {
     this.scene.updateMatrixWorld(true);
     return this;
   }
-  addLighting() {
 
+  addLighting() {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     this.scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.3);
@@ -200,7 +192,7 @@ class SceneCreator {
     this.resetSizes();
 
     window.addEventListener(
-      "resize touchmove",
+      "resize",
       () => {
         this.resetSizes();
         const camera = this.camera;
