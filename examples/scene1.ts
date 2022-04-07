@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import SceneCreator from '../dist/3d-scene-creator.es'
 import "./style.css";
 
-let sceneCreator = new SceneCreator(document.getElementById('app'), 0.5);
+let sceneCreator = new SceneCreator(document.getElementById('app'));
 
 sceneCreator.loadScene("/examples/scene.json", () => {
 	console.log('scene loaded')
