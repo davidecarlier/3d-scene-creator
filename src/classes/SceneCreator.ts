@@ -265,7 +265,7 @@ export class SceneCreator {
     this.moveCamera(this.initialCamPos, this.initialTargetPos)
   }
 
-  moveCamera(newPosCam: THREE.Vector3, newPosTarget: THREE.Vector3, callback?: Function) {
+  moveCamera(newPosCam: THREE.Vector3, newPosTarget?: THREE.Vector3, callback?: Function) {
     const camera = this.camera;
 
     let reEnable: boolean;
@@ -279,7 +279,7 @@ export class SceneCreator {
       x: newPosCam.x,
       y: newPosCam.y,
       z: newPosCam.z,
-      onComplete() {
+      onComplete: () => {
         if (this.controls) this.controls.enabled = reEnable;
         if (typeof callback === 'function') callback();
       }
@@ -295,43 +295,43 @@ export class SceneCreator {
     return this
   }
 
-  loadModel(url: string, loader?: any, callback?: Function) {
-    if (!loader) {
-      loader = new THREE.ObjectLoader();
-    }
+  loadModel(url: string, loader?: any): Promise<THREE.Object3D> {
+    return new Promise((resolve) => {
 
-    loader.load(url, (obj: THREE.Object3D) => {
-      this.scene.add(obj);
-      if (typeof callback === 'function') {
-        callback(obj);
+      if (!loader) {
+        loader = new THREE.ObjectLoader();
       }
-    }
-    );
-    return this;
+
+      loader.load(url, (obj: THREE.Object3D) => {
+        this.scene.add(obj);
+        resolve(obj)
+      });
+    });
   }
 
-  loadScene(url: string, callback?: Function) {
-    var loader = new THREE.ObjectLoader();
+  loadScene(url: string): Promise<THREE.Scene> {
+    return new Promise((resolve, reject) => {
 
-    loader.load(url, (obj) => {
-      if (obj instanceof THREE.Scene) {
-        // Add the loaded object to the scene
-        this.scene = obj;
-      } else {
-        console.log('Loaded element was not a THREE.js scene')
-      }
-      if (typeof callback === 'function') {
-        callback.apply(this, [obj]);
-      }
-    },
-      function (xhr) {
-        console.log(xhr.loaded / xhr.total * 100);
+      var loader = new THREE.ObjectLoader();
+
+      loader.load(url, (obj) => {
+        if (obj instanceof THREE.Scene) {
+          // Add the loaded object to the scene
+          this.scene = obj;
+          resolve(obj)
+        } else {
+          reject("Loaded element was not a THREE.js scene")
+        }
       },
-      function (err) {
-        console.error('An error happened', err);
-      }
-    );
-    return this
+        function (xhr) {
+          console.log(xhr.loaded / xhr.total * 100);
+        },
+        function (err) {
+          console.error('An error happened', err);
+        }
+      );
+      return this
+    })
   }
 }
 

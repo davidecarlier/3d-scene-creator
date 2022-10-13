@@ -6,14 +6,17 @@ Easily add 3D interactive scenes to your website.
 
 ### Initialize & add to the page
 ```js
-let sceneCreator = new SceneCreator(document.getElementById('app'));
+import { SceneCreator } from '3d-scene-creator';
+
+const sceneCreator = new SceneCreator(document.getElementById('app'));
 sceneCreator.startRenderLoop()
 
 ```
 
 - Load 3D scenes or models exported via [three.js editor](https://threejs.org/editor/)
 ```js
-sceneCreator.loadScene("/examples/scene.json");
+await sceneCreator.loadScene("/examples/scene.json");
+console.log("Scene loaded!")
 ```
 
 - Add camera controls

@@ -1,22 +1,28 @@
 import * as THREE from 'three';
-import SceneCreator from '../dist/3d-scene-creator.es.js';
+import { SceneCreator } from '../src/main';
 import "./style.css";
 
-const sceneCreator = new SceneCreator(document.getElementById('app'));
-
-sceneCreator.loadScene("/examples/scene.json", () => {
+async function initExample() {
+	const container = document.getElementById('app');
+	if (!container) return;
+	const sceneCreator = new SceneCreator(container);
+	await sceneCreator.loadScene("/examples/scene.json")
 	console.log('scene loaded')
 	sceneCreator.startRenderLoop()
 		.addSkybox()
 		.addLighting()
 		.addControls()
-		.animateModelColor("Cube", "#00ff00", 2)
-		.loadModel("/examples/model.json", undefined, function (obj: THREE.Object3D) {
-			obj.name = 'Octa';
-			this.animateModelColor('Octa', "red")
-				.animateModelPosition('Octa', new THREE.Vector3(-1, 2, -2))
-				.animateModelOpacity('Octa', 0, 10)
-		});
-	sceneCreator.animateModelColor('skybox', "purple")
+		.animateModelColor("Cube", "#00ff00", 2);
 
-});
+	const obj = await sceneCreator.loadModel("/examples/model.json");
+	obj.name = 'Octa';
+	sceneCreator.animateModelColor('Octa', "red")
+		.animateModelPosition('Octa', new THREE.Vector3(-1, 2, -2))
+		.animateModelOpacity('Octa', 0.3, 10)
+
+	sceneCreator.animateModelColor('skybox', "purple");
+	sceneCreator.moveCamera(new THREE.Vector3(10,20,20));
+
+}
+
+initExample();
