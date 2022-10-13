@@ -170,6 +170,7 @@ export class SceneCreator {
     this.renderer.setSize(this.cWidth, this.cHeight);
     this.container.appendChild(this.renderer.domElement);
     this.scene.updateMatrixWorld(true);
+    this.startRenderLoop();
     return this;
   }
 

@@ -1,10 +1,13 @@
 import * as THREE from 'three';
 import { SceneCreator } from '../src/main';
-import "./style.css";
 
 async function initExample() {
-	const container = document.getElementById('app');
-	if (!container) return;
+
+	const container = document.createElement('div');
+	container.style.height = '100vh';
+	container.style.width = '100%';
+	document.body.append(container)
+	
 	const sceneCreator = new SceneCreator(container);
 	await sceneCreator.loadModel("/examples/scene.json")
 	console.log('scene loaded')
@@ -21,7 +24,7 @@ async function initExample() {
 		.animateModelOpacity('Octa', 0.3, 10)
 
 	sceneCreator.animateModelColor('skybox', "purple");
-	sceneCreator.moveCamera(new THREE.Vector3(10,20,20));
+	sceneCreator.moveCamera(new THREE.Vector3(10, 20, 20));
 
 }
 
