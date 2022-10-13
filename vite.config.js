@@ -1,10 +1,10 @@
-const path = require('path')
-const { defineConfig } = require('vite')
+import { resolve } from 'path'
+import { defineConfig } from 'vite'
 
 module.exports = defineConfig({
   build: {
     lib: {
-      entry: path.resolve(__dirname, 'src/main.ts'),
+      entry: resolve(__dirname, 'src/main.ts'),
       name: '3d-scene-creator',
       fileName: (format) => `3d-scene-creator.${format}.js`
     },
