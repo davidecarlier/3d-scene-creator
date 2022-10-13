@@ -8,8 +8,8 @@
   },
   "devDependencies": {
     "@types/three": "^0.134.0",
-    "typescript": "^4.7.3",
-    "vite": "^2.9.9"
+    "typescript": "^4.3.2",
+    "vite": "^2.9.13"
   },
   "main": "dist/3d-scene-creator.es.js",
   "files": [
