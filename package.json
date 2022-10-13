@@ -1,6 +1,6 @@
 {
   "name": "3d-scene-creator",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -25,7 +25,7 @@
     "gsap": "^3.11.3",
     "three": "^0.145.0"
   },
-  "description": "Easily add 3D interactive scenes to your website.",
+  "description": "A simple utility to create and manage 3D scenes",
   "directories": {
     "example": "examples"
   },
@@ -34,7 +34,10 @@
     "url": "git+https://github.com/davidecarlier/3d-scene-creator.git"
   },
   "keywords": [
+    "three",
     "threejs",
+    "typescript",
+    "webgl",
     "3d",
     "orbitcontrols"
   ],

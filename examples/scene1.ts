@@ -6,7 +6,7 @@ async function initExample() {
 	const container = document.getElementById('app');
 	if (!container) return;
 	const sceneCreator = new SceneCreator(container);
-	await sceneCreator.loadScene("/examples/scene.json")
+	await sceneCreator.loadModel("/examples/scene.json")
 	console.log('scene loaded')
 	sceneCreator.startRenderLoop()
 		.addSkybox()

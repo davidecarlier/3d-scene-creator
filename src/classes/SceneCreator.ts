@@ -295,44 +295,18 @@ export class SceneCreator {
     return this
   }
 
-  loadModel(url: string, loader?: any): Promise<THREE.Object3D> {
-    return new Promise((resolve) => {
+  loadModel(url: string, loader?: THREE.Loader): Promise<THREE.Object3D> {
 
-      if (!loader) {
-        loader = new THREE.ObjectLoader();
-      }
+    if (!loader) {
+      loader = new THREE.ObjectLoader();
+    }
 
-      loader.load(url, (obj: THREE.Object3D) => {
-        this.scene.add(obj);
-        resolve(obj)
-      });
-    });
+    return loader.loadAsync(url).then((obj=>{
+      this.scene.add(obj);
+      return obj;
+    }));
   }
 
-  loadScene(url: string): Promise<THREE.Scene> {
-    return new Promise((resolve, reject) => {
-
-      var loader = new THREE.ObjectLoader();
-
-      loader.load(url, (obj) => {
-        if (obj instanceof THREE.Scene) {
-          // Add the loaded object to the scene
-          this.scene = obj;
-          resolve(obj)
-        } else {
-          reject("Loaded element was not a THREE.js scene")
-        }
-      },
-        function (xhr) {
-          console.log(xhr.loaded / xhr.total * 100);
-        },
-        function (err) {
-          console.error('An error happened', err);
-        }
-      );
-      return this
-    })
-  }
 }
 
 
