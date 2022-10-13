@@ -321,7 +321,7 @@ class SceneCreator {
         console.log('Loaded element was not a THREE.js scene')
       }
       if (typeof callback === 'function') {
-        callback(obj);
+        callback.apply(this, [obj]);
       }
     },
       function (xhr) {

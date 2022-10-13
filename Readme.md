@@ -21,5 +21,9 @@ sceneCreator.loadScene("/examples/scene.json");
 sceneCreator.addControls();
 ```
 - Animate camera
+```js
+sceneCreator.addControls();
+```
+
 - Animate 3D object position
 - Animate 3D object color and opacity
