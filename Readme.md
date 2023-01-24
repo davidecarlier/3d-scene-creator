@@ -66,3 +66,10 @@ sceneCreator
 
 ```
 
+### Add skybox from url (360° Images)
+
+```js
+sceneCreator.addSkybox("my360image.jpg");
+```
+
+

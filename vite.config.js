@@ -13,6 +13,9 @@ module.exports = defineConfig({
       }
     },
     rollupOptions: {
+      input: {
+        main: "./src/main.ts"
+      },
       // make sure to externalize deps that shouldn't be bundled
       // into your library
       external: ['three', 'gsap', 'three/examples/jsm/controls/OrbitControls'],
