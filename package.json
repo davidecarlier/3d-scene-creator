@@ -15,7 +15,6 @@
   "main": "dist/main.js",
   "files": [
     "dist",
-    "examples",
     "LICENSE",
     "package.json",
     "README.md",
