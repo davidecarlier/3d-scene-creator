@@ -74,7 +74,7 @@ export class SceneCreator {
       enableDamping: true,
       dampingFactor: 0.25,
       maxPolarAngle: Math.PI / 2,
-      maxDistance: 1000 * this.scale,
+      maxDistance: 500 * this.scale,
       minDistance: 0,
       rotateSpeed: 1,
       enableZoom: true,
@@ -186,24 +186,19 @@ export class SceneCreator {
     return this;
   }
 
-  addSkybox(url?: string, color?: string, name?: string) {
-    var sphereGeom = new THREE.SphereGeometry(1000 * this.scale, 60, 60);
+  addSkybox(url?: string, color: THREE.ColorRepresentation = "#B2FFFF", name?: string) {
+    const sphereGeom = new THREE.SphereGeometry(1000 * this.scale, 60, 60);
     sphereGeom.scale(-1, 1, 1)
     let sphereMaterial;
     if (url) {
       THREE.TextureLoader.prototype.crossOrigin = 'anonymous';
       sphereMaterial = new THREE.MeshBasicMaterial({
-        map: new THREE.TextureLoader().load(
-          url
-        )
+        map: new THREE.TextureLoader().load(url)
       });
     } else {
-      if (!color) {
-        color = "#00ff00";
-      }
       sphereMaterial = new THREE.MeshStandardMaterial({ color });
     }
-    let skybox = new THREE.Mesh(sphereGeom, sphereMaterial);
+    const skybox = new THREE.Mesh(sphereGeom, sphereMaterial);
     skybox.name = name ? name : 'skybox';
     this.scene.add(skybox);
     return this;
@@ -302,7 +297,7 @@ export class SceneCreator {
       loader = new THREE.ObjectLoader();
     }
 
-    return loader.loadAsync(url).then((obj=>{
+    return loader.loadAsync(url).then((obj => {
       this.scene.add(obj);
       return obj;
     }));
