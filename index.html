@@ -4,10 +4,187 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Scene Creator Examples</title>
+    <title>3D Scene Creator - Examples</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: white;
+            font-size: 3.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.2em;
+            margin-bottom: 50px;
+            font-weight: 300;
+        }
+
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .example-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 30px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .example-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-color: #667eea;
+        }
+
+        .example-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .example-card h2 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .example-card p {
+            color: #666;
+            font-size: 0.95em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .example-tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-right: 8px;
+            margin-bottom: 10px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 6px;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .example-card:hover .cta-button {
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .footer {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9em;
+            margin-top: 50px;
+        }
+
+        .footer p {
+            margin: 5px 0;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5em;
+            }
+
+            .subtitle {
+                font-size: 1em;
+            }
+
+            .examples-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-    <a href="/examples/360-beach/index.html">360 Beach</a>
-    <a href="/examples/load-models/index.html">Load models</a>
+    <div class="container">
+        <h1>🎨 3D Scene Creator</h1>
+        <p class="subtitle">Interactive 3D Experiences with Three.js & GSAP</p>
+
+        <div class="examples-grid">
+            <!-- 360 Beach Example -->
+            <a href="/examples/360-beach/index.html" class="example-card">
+                <div class="example-icon">🏖️</div>
+                <h2>360 Beach</h2>
+                <p>Explore a beautiful panoramic beach scene with immersive 360° imagery</p>
+                <div>
+                    <span class="example-tag">Skybox</span>
+                    <span class="example-tag">Controls</span>
+                </div>
+                <div class="cta-button">View Example →</div>
+            </a>
+
+            <!-- Load Models Example -->
+            <a href="/examples/load-models/index.html" class="example-card">
+                <div class="example-icon">📦</div>
+                <h2>Load Models</h2>
+                <p>Load and display 3D models with animations and transformations</p>
+                <div>
+                    <span class="example-tag">Models</span>
+                    <span class="example-tag">Animations</span>
+                </div>
+                <div class="cta-button">View Example →</div>
+            </a>
+
+            <!-- Interactive Picking Example -->
+            <a href="/examples/picking/index.html" class="example-card">
+                <div class="example-icon">🎯</div>
+                <h2>Interactive Picking</h2>
+                <p>Click and hover over 3D objects to interact with them in real-time</p>
+                <div>
+                    <span class="example-tag">Picking</span>
+                    <span class="example-tag">Events</span>
+                </div>
+                <div class="cta-button">View Example →</div>
+            </a>
+        </div>
+
+        <div class="footer">
+            <p><strong>3D Scene Creator</strong> - A simple utility to create and manage 3D scenes</p>
+            <p>Built with Three.js, GSAP, and TypeScript</p>
+        </div>
+    </div>
 </body>
 </html>

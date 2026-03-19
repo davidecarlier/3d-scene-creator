@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Object Picking Example - 3D Scene Creator</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            max-width: 300px;
+            line-height: 1.6;
+        }
+
+        #info h3 {
+            margin: 0 0 10px 0;
+            color: #4dd0e1;
+        }
+
+        #info p {
+            margin: 5px 0;
+        }
+
+        #selected-info {
+            background: rgba(77, 208, 225, 0.1);
+            border-left: 3px solid #4dd0e1;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 3px;
+        }
+
+        .object-box {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+        .box1 { background-color: #ff6b6b; }
+        .box2 { background-color: #4ecdc4; }
+        .box3 { background-color: #ffd93d; }
+        .box4 { background-color: #a8e6cf; }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div id="info">
+        <h3>🎯 Interactive Picking</h3>
+        <p>
+            <strong>Click</strong> or <strong>Hover</strong> over cubes to interact
+        </p>
+        <div id="selected-info" style="display:none;">
+            <p><strong>Selected:</strong> <span id="selected-name">-</span></p>
+            <p><strong>Distance:</strong> <span id="selected-distance">-</span>m</p>
+            <p><strong>Clicks:</strong> <span id="click-count">0</span></p>
+            <p><strong>Right Clicks:</strong> <span id="right-click-count">0</span></p>
+        </div>
+    </div>
+
+    <script type="module" src="./index.ts"></script>
+</body>
+</html>
