@@ -1,7 +1,9 @@
 import * as THREE from "three";
 
 import gsap from "gsap";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import type { LightingOptions } from "../types";
 
 export class SceneCreator {
   scene: THREE.Scene;
@@ -27,6 +29,17 @@ export class SceneCreator {
   onObjectClick: ((obj: THREE.Object3D) => void) | undefined;
   onObjectHover: ((obj: THREE.Object3D | null) => void) | undefined;
   onObjectContextMenu: ((obj: THREE.Object3D) => void) | undefined;
+
+  // Lazily-created GLTF loader + per-URL cache of loaded scenes.
+  private gltfLoader?: GLTFLoader;
+  private gltfCache: Map<string, Promise<THREE.Group>> = new Map();
+
+  // Click-vs-drag discrimination: a pointer gesture only counts as a click if
+  // it moves less than `clickDragThreshold` pixels between down and up.
+  clickDragThreshold: number = 6;
+  private pointerDownX: number = 0;
+  private pointerDownY: number = 0;
+  private pointerDragging: boolean = false;
 
   /**
    * Initialize a 3D scene with Three.js and GSAP
@@ -235,18 +248,82 @@ export class SceneCreator {
   }
 
   /**
-   * Add default lighting to the scene (ambient + 2 directional lights)
+   * Add a game-ready lighting rig: a hemisphere fill, a shadow-casting key
+   * light, and an opposite fill light, with optional ACES tone mapping.
+   * All parts are configurable; sensible defaults are used when omitted.
+   * @param options - Lighting configuration overrides
    * @returns this for method chaining
    */
-  addLighting() {
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-    this.scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.3);
-    directionalLight.position.set(1, 1, 0)
-    this.scene.add(directionalLight);
-    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.2);
-    directionalLight2.position.set(-1, 1, -1);
-    this.scene.add(directionalLight2);
+  addLighting(options: LightingOptions = {}) {
+    const {
+      hemisphere = { sky: 0xbcd4ff, ground: 0x3a2c16, intensity: 1.4 },
+      key = {},
+      fill = { color: 0x9ec3ff, intensity: 0.6, position: new THREE.Vector3(-10, 8, -8) },
+      shadows = true,
+      shadowArea = 16,
+      shadowMapSize = 2048,
+      toneMapping = true,
+      exposure = 1.05,
+    } = options;
+
+    if (hemisphere) {
+      const hemi = new THREE.HemisphereLight(
+        hemisphere.sky ?? 0xbcd4ff,
+        hemisphere.ground ?? 0x3a2c16,
+        hemisphere.intensity ?? 1.4,
+      );
+      hemi.position.set(0, 20, 0);
+      this.scene.add(hemi);
+    }
+
+    const keyLight = new THREE.DirectionalLight(key.color ?? 0xfff2dd, key.intensity ?? 2.6);
+    keyLight.position.copy(key.position ?? new THREE.Vector3(8, 16, 10));
+    this.scene.add(keyLight);
+
+    if (fill) {
+      const fillLight = new THREE.DirectionalLight(fill.color ?? 0x9ec3ff, fill.intensity ?? 0.6);
+      fillLight.position.copy(fill.position ?? new THREE.Vector3(-10, 8, -8));
+      this.scene.add(fillLight);
+    }
+
+    if (shadows) {
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.set(shadowMapSize, shadowMapSize);
+      const cam = keyLight.shadow.camera;
+      cam.near = 1;
+      cam.far = 60;
+      cam.left = -shadowArea;
+      cam.right = shadowArea;
+      cam.top = shadowArea;
+      cam.bottom = -shadowArea;
+      cam.updateProjectionMatrix();
+      keyLight.shadow.bias = -0.0004;
+    }
+
+    if (toneMapping) {
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = exposure;
+    }
+
+    return this;
+  }
+
+  /**
+   * Enable shadow casting/receiving on every mesh currently in the scene.
+   * Call after adding your meshes (and after {@link addLighting} with shadows on).
+   * @param cast - Whether meshes cast shadows (default: true)
+   * @param receive - Whether meshes receive shadows (default: true)
+   * @returns this for method chaining
+   */
+  applyShadows(cast: boolean = true, receive: boolean = true) {
+    this.scene.traverse((obj) => {
+      if ((obj as THREE.Mesh).isMesh) {
+        obj.castShadow = cast;
+        obj.receiveShadow = receive;
+      }
+    });
     return this;
   }
 
@@ -388,13 +465,36 @@ export class SceneCreator {
       loader = new THREE.ObjectLoader();
     }
 
-    return loader.loadAsync(url).then((obj => {
-      this.scene.add(obj);
-      return obj;
+    return loader.loadAsync(url).then(((obj: unknown) => {
+      const object = obj as THREE.Object3D;
+      this.scene.add(object);
+      return object;
     })).catch((error) => {
       console.error(`Failed to load model from "${url}":`, error);
       throw error;
     });
+  }
+
+  /**
+   * Load a glTF/glb model and return a fresh clone of its scene (not added to
+   * the scene graph). Results are cached per URL, so loading the same model
+   * many times only fetches/parses it once. Ideal for instancing buildings,
+   * units, props, etc. in a game.
+   * @param url - URL to the .glb/.gltf file
+   * @returns Promise resolving to a cloneable Group ready to position/add
+   */
+  loadGLTF(url: string): Promise<THREE.Group> {
+    if (!this.gltfLoader) {
+      this.gltfLoader = new GLTFLoader();
+    }
+    let pending = this.gltfCache.get(url);
+    if (!pending) {
+      pending = this.gltfLoader.loadAsync(url).then((gltf) => gltf.scene);
+      // Don't cache failures: drop the rejected promise so a later call can retry.
+      pending.catch(() => this.gltfCache.delete(url));
+      this.gltfCache.set(url, pending);
+    }
+    return pending.then((scene) => scene.clone(true));
   }
 
   /**   * Enable interactive object picking with mouse events
@@ -446,34 +546,62 @@ export class SceneCreator {
       }
     });
 
-    // Mouse click listener
+    // Track pointer gesture distance so an orbit/pan drag never fires a click.
+    this.container.addEventListener('pointerdown', (event: PointerEvent) => {
+      this.pointerDownX = event.clientX;
+      this.pointerDownY = event.clientY;
+      this.pointerDragging = false;
+    });
+    this.container.addEventListener('pointermove', (event: PointerEvent) => {
+      if (this.pointerDragging) return;
+      const dx = event.clientX - this.pointerDownX;
+      const dy = event.clientY - this.pointerDownY;
+      if (Math.hypot(dx, dy) > this.clickDragThreshold) {
+        this.pointerDragging = true;
+      }
+    });
+
+    // Mouse click listener (suppressed when the gesture was a drag)
     this.container.addEventListener('click', () => {
+      if (this.pointerDragging) return;
       if (this.selectedObject && this.onObjectClick) {
         this.onObjectClick(this.selectedObject);
       }
     });
-    
-    // Touch support for mobile devices
+
+    // Touch support for mobile devices: pick on touchend only if it was a tap.
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchMoved = false;
     this.container.addEventListener('touchstart', (event: TouchEvent) => {
       if (event.touches.length === 1) {
-        const touch = event.touches[0];
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
-
-        // Perform raycasting
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.scene.children, true);
-
-        if (intersects.length > 0) {
-          const picked = intersects[0].object;
-          if (this.onObjectClick) {
-            this.onObjectClick(picked);
-          }
-        }
+        touchStartX = event.touches[0].clientX;
+        touchStartY = event.touches[0].clientY;
+        touchMoved = false;
+      } else {
+        touchMoved = true; // multi-touch = gesture, never a tap
       }
-    }
-    );
+    });
+    this.container.addEventListener('touchmove', (event: TouchEvent) => {
+      if (touchMoved || event.touches.length !== 1) return;
+      const dx = event.touches[0].clientX - touchStartX;
+      const dy = event.touches[0].clientY - touchStartY;
+      if (Math.hypot(dx, dy) > this.clickDragThreshold) touchMoved = true;
+    });
+    this.container.addEventListener('touchend', (event: TouchEvent) => {
+      if (touchMoved) return;
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      this.mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+      if (intersects.length > 0 && this.onObjectClick) {
+        this.onObjectClick(intersects[0].object);
+      }
+    });
 
     // context menu 
     this.container.addEventListener('contextmenu', (event: MouseEvent) => {

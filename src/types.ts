@@ -15,6 +15,43 @@ export interface SceneCreatorOptions {
 }
 
 /**
+ * A single directional light spec (color, intensity, position).
+ */
+export interface DirectionalLightSpec {
+  color?: THREE.ColorRepresentation;
+  intensity?: number;
+  position?: THREE.Vector3;
+}
+
+/**
+ * Options for {@link SceneCreator.addLighting}.
+ */
+export interface LightingOptions {
+  /** Sky/ground ambient fill. Set to false to omit. */
+  hemisphere?:
+    | false
+    | {
+        sky?: THREE.ColorRepresentation;
+        ground?: THREE.ColorRepresentation;
+        intensity?: number;
+      };
+  /** Main directional light (casts shadows when `shadows` is on). */
+  key?: DirectionalLightSpec;
+  /** Opposite-side fill light to soften shadows. Set to false to omit. */
+  fill?: false | DirectionalLightSpec;
+  /** Enable shadow mapping on the renderer and the key light (default: true). */
+  shadows?: boolean;
+  /** Half-size of the key light's orthographic shadow frustum (default: 16). */
+  shadowArea?: number;
+  /** Shadow map resolution (default: 2048). */
+  shadowMapSize?: number;
+  /** Apply ACES Filmic tone mapping (default: true). */
+  toneMapping?: boolean;
+  /** Tone mapping exposure (default: 1.05). */
+  exposure?: number;
+}
+
+/**
  * Configuration overrides for OrbitControls
  */
 export interface OrbitControlsConfig {

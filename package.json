@@ -1,18 +1,30 @@
 {
   "name": "3d-scene-creator",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "serve": "vite preview"
   },
   "devDependencies": {
-    "@types/three": "^0.144.0",
-    "typescript": "^4.8.4",
+    "@types/three": "^0.184.0",
+    "typescript": "^6.0.0",
     "vite": "^8.0.1",
-    "vite-plugin-dts": "^1.6.5"
+    "vite-plugin-dts": "^5.0.1"
+  },
+  "peerDependencies": {
+    "three": ">=0.145.0"
   },
   "main": "dist/main.js",
+  "module": "dist/main.js",
+  "types": "dist/src/main.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/main.d.ts",
+      "import": "./dist/main.js",
+      "require": "./dist/main.umd.js"
+    }
+  },
   "files": [
     "dist",
     "LICENSE",
@@ -21,8 +33,7 @@
     "src"
   ],
   "dependencies": {
-    "gsap": "^3.11.3",
-    "three": "^0.145.0"
+    "gsap": "^3.11.3"
   },
   "description": "A simple utility to create and manage 3D scenes",
   "directories": {

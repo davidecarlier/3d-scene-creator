@@ -5,17 +5,23 @@
 - 🔧 **Method chaining**: All methods return `this` for fluent API
 - 🎨 **Easy animations**: Color, opacity, position, and camera animations
 - 🎮 **Camera controls**: Built-in OrbitControls with customizable settings
+- 💡 **Configurable lighting rig**: Hemisphere + key/fill directional lights, soft shadows, and ACES tone mapping out of the box
+- 📦 **glTF/GLB loading with caching**: Load once, clone many — ideal for instancing buildings, units, and props
 - 🌅 **360° Skybox support**: Load panoramic images as backgrounds
 - 💾 **Resource cleanup**: Automatic memory management with `dispose()` method
-- 🎯 **Interactive mesh picking**: Click, hover, and right-click detection on 3D objects with custom callbacks
+- 🎯 **Interactive mesh picking**: Click, hover, and right-click detection on 3D objects, with click-vs-drag discrimination on mouse and touch
 
 
 ## Usage
-### Install 
+### Install
+
+`three` is a **peer dependency** (`>=0.145.0`), so install it alongside the package:
 
 ```bash
-npm install 3d-scene-creator
+npm install 3d-scene-creator three
 ```
+
+The package ships both ESM (`import`) and UMD (`require`) builds with bundled TypeScript types.
 
 ### Quick Start
 
@@ -83,13 +89,32 @@ window.addEventListener('beforeunload', () => {
 ### Loading 3D Models
 
 ```js
-// Load with default ObjectLoader
+// Load with default ObjectLoader (adds the object to the scene)
 await scene.loadModel("/path/to/model.json");
 
 // Load with custom loader
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 const gltfLoader = new GLTFLoader();
 await scene.loadModel("/path/to/model.glb", gltfLoader);
+```
+
+#### glTF/GLB with caching
+
+`loadGLTF()` uses a built-in `GLTFLoader` and caches each URL, so loading the
+same asset many times only fetches and parses it once. It returns a fresh
+**clone** that is *not* added to the scene — position it and add it yourself.
+Perfect for instancing buildings, units, or props in a game.
+
+```js
+// Fetch + parse once; every call returns an independent clone
+const tree1 = await scene.loadGLTF("/models/tree.glb");
+const tree2 = await scene.loadGLTF("/models/tree.glb"); // served from cache
+
+tree1.position.set(0, 0, 0);
+tree2.position.set(5, 0, 2);
+scene.scene.add(tree1, tree2);
+
+scene.applyShadows(); // make the new meshes cast/receive shadows
 ```
 
 ### Camera Controls
@@ -116,12 +141,43 @@ scene.moveCamera(
 scene.resetCameraPosition();
 ```
 
-### Lighting
+### Lighting & Shadows
+
+`addLighting()` sets up a game-ready rig: a hemisphere fill, a shadow-casting key
+light, an opposite fill light, and ACES Filmic tone mapping. Everything has
+sensible defaults and is fully configurable.
 
 ```js
-// Add default lighting setup (recommended)
+// Recommended default rig (shadows + tone mapping enabled)
 scene.addLighting();
+
+// Fully customized rig
+scene.addLighting({
+  hemisphere: { sky: 0xbcd4ff, ground: 0x3a2c16, intensity: 1.4 },
+  key: { color: 0xfff2dd, intensity: 2.6, position: new THREE.Vector3(8, 16, 10) },
+  fill: { color: 0x9ec3ff, intensity: 0.6, position: new THREE.Vector3(-10, 8, -8) },
+  shadows: true,
+  shadowArea: 16,      // half-size of the key light's shadow frustum
+  shadowMapSize: 2048, // shadow map resolution
+  toneMapping: true,
+  exposure: 1.05,
+});
+
+// Disable individual lights or features
+scene.addLighting({ hemisphere: false, fill: false, shadows: false });
 ```
+
+Shadows only appear on meshes that opt in. After adding your meshes, call
+`applyShadows()` to flag every mesh in the scene as a shadow caster/receiver:
+
+```js
+scene.addLighting();
+// ...add your meshes...
+scene.applyShadows();          // cast + receive on all meshes
+scene.applyShadows(true, false); // cast only (e.g. units that don't catch shadows)
+```
+
+> **Note:** `addLighting()` adds lights without clearing existing ones — call it once per scene.
 
 ### Skybox / Background
 
@@ -210,6 +266,14 @@ if (result) {
 }
 ```
 
+Click and tap events are only fired when the pointer barely moves between
+press and release, so orbiting or panning the camera never triggers a spurious
+click. Tune the sensitivity (in pixels) via `clickDragThreshold` (default `6`):
+
+```js
+scene.clickDragThreshold = 10;
+```
+
 ### Resource Cleanup
 
 Always call `dispose()` when done to prevent memory leaks:
@@ -237,11 +301,13 @@ constructor(
 
 **Core Methods**
 - `attachRenderer(container: HTMLElement): this` - Attach renderer to DOM
-- `loadModel(url: string, loader?: THREE.Loader): Promise<Object3D>` - Load 3D model
+- `loadModel(url: string, loader?: THREE.Loader): Promise<Object3D>` - Load a 3D model and add it to the scene
+- `loadGLTF(url: string): Promise<Group>` - Load a glTF/GLB model and return a cached, cloneable Group (not added to the scene)
 - `dispose(): void` - Clean up resources
 
 **Lighting & Scene Setup**
-- `addLighting(): this` - Add default lighting
+- `addLighting(options?: LightingOptions): this` - Add a configurable lighting rig (hemisphere + key/fill lights, shadows, tone mapping)
+- `applyShadows(cast?: boolean, receive?: boolean): this` - Toggle shadow casting/receiving on all meshes in the scene
 - `addSkybox(url?: string, color?: ColorRepresentation, name?: string): this` - Add skybox
 - `addControls(overrides?: object): this` - Add orbit controls
 
