@@ -198,7 +198,7 @@
   .<span class="t-fn">addLighting</span>()
   .<span class="t-fn">addControls</span>()
   .<span class="t-fn">addSkybox</span>(<span class="t-str">"/panorama.jpg"</span>);</code></pre>
-        <div class="note"><code>three</code> is a peer dependency (install it yourself). <code>cannon-es</code> (MIT) is a dependency that ships with the package and powers the physics API.</div>
+        <div class="note"><code>three</code> is a peer dependency (install it yourself). <code>cannon-es</code> (MIT) powers the physics API and is imported on demand, so bundlers code-split it: apps that never call <code>enablePhysics()</code> don't load it.</div>
       </div>
 
       <!-- CONSTRUCTOR -->
@@ -350,9 +350,9 @@ robot.<span class="t-fn">stop</span>();                          <span class="t-
         <p class="lead">Optional rigid-body simulation powered by <a href="https://github.com/pmndrs/cannon-es" target="_blank" rel="noopener">cannon-es</a> (MIT). Enable it once, then link meshes to bodies; the world is stepped and synced every frame.</p>
 
         <div class="method" id="enablePhysics">
-          <div class="sig"><span class="name">enablePhysics</span>(options?: <a href="#t-physicsoptions">PhysicsOptions</a>): <span class="ret">this</span></div>
-          <p class="desc">Create the <code>CANNON.World</code> with the given gravity and default contact material. No-op if physics is already enabled.</p>
-          <pre class="ex"><code>scene.<span class="t-fn">enablePhysics</span>({ gravity: [<span class="t-num">0</span>, <span class="t-num">-12</span>, <span class="t-num">0</span>], restitution: <span class="t-num">0.4</span> });
+          <div class="sig"><span class="name">enablePhysics</span>(options?: <a href="#t-physicsoptions">PhysicsOptions</a>): <span class="ret">Promise&lt;this&gt;</span></div>
+          <p class="desc">Load cannon-es on demand and create the <code>CANNON.World</code> with the given gravity and default contact material. This is <code>async</code>: <code>await</code> it before adding bodies. No-op if physics is already enabled.</p>
+          <pre class="ex"><code><span class="t-key">await</span> scene.<span class="t-fn">enablePhysics</span>({ gravity: [<span class="t-num">0</span>, <span class="t-num">-12</span>, <span class="t-num">0</span>], restitution: <span class="t-num">0.4</span> });
 scene.<span class="t-fn">addGround</span>();
 <span class="t-key">const</span> body = scene.<span class="t-fn">addBody</span>(mesh, { mass: <span class="t-num">1</span>, shape: <span class="t-str">"box"</span> });</code></pre>
         </div>

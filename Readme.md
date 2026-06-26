@@ -1,3 +1,12 @@
+# 3D Scene Creator
+
+A tiny, type-safe toolkit for building interactive 3D scenes on top of Three.js:
+lighting, controls, model loading, animation, physics and click-to-pick, behind
+a fluent API.
+
+**[Live demo &amp; examples](https://3dscenecreator.netlify.app)** ·
+**[API reference](https://3dscenecreator.netlify.app/docs.html)**
+
 ## Features
 - 🎬 The SceneCreator class wraps Three.js and tween.js to provide a simple API to load models, animate objects, and setup 3D scenes
 - ⚡ **Optimized render function**: only renders when something is moving
@@ -315,15 +324,16 @@ scene.enablePicking(
 ### Physics
 
 Opt into rigid-body physics with [cannon-es](https://github.com/pmndrs/cannon-es)
-(MIT). Call `enablePhysics()` once, then link any mesh to a body with
-`addBody()`. The world is stepped every frame and each body's position and
-rotation are copied back onto its mesh automatically.
+(MIT). `enablePhysics()` loads cannon-es on demand (a dynamic `import()`), so
+it's `async`: `await` it once, then link any mesh to a body with `addBody()`.
+The world is stepped every frame and each body's position and rotation are
+copied back onto its mesh automatically.
 
 ```js
 scene.addLighting().addControls();
 
 // Turn on physics and drop in a ground plane.
-scene.enablePhysics({ gravity: [0, -12, 0], restitution: 0.4 });
+await scene.enablePhysics({ gravity: [0, -12, 0], restitution: 0.4 });
 scene.addGround(0); // static, infinite plane at y = 0
 
 // Any mesh can become a dynamic body. The collision shape is derived from
@@ -344,8 +354,9 @@ scene.removeBody(body); // detach when you're done with it
 
 Use `mass: 0` for static bodies, and `shape: "sphere"` for rolling objects.
 The underlying `CANNON.World` is exposed as `scene.physicsWorld` if you need to
-add constraints, custom materials, or collision events. `cannon-es` (MIT) is a
-dependency of the package and ships with it.
+add constraints, custom materials, or collision events. Because cannon-es is
+imported lazily, bundlers code-split it into its own chunk, so apps that never
+call `enablePhysics()` don't load it.
 
 ### Resource Cleanup
 
@@ -402,7 +413,7 @@ constructor(
 - `pickAt(mouseX: number, mouseY: number): PickingResult | null` - Pick object at normalized mouse coordinates
 
 **Physics**
-- `enablePhysics(options?: PhysicsOptions): this` - Create the cannon-es world (gravity, default friction/restitution)
+- `enablePhysics(options?: PhysicsOptions): Promise<this>` - Load cannon-es on demand and create the world (gravity, default friction/restitution). `await` before adding bodies
 - `addBody(mesh: Object3D, options?: PhysicsBodyOptions): CANNON.Body` - Link a mesh to a rigid body, synced every frame
 - `addGround(y?: number): CANNON.Body` - Add a static, infinite ground plane
 - `removeBody(body: CANNON.Body): this` - Remove a body and stop syncing its mesh
