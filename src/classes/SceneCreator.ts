@@ -1,9 +1,17 @@
 import * as THREE from "three";
 
 import { Tween, Group, Easing } from "@tweenjs/tween.js";
+import * as CANNON from "cannon-es";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import type { LightingOptions, AnimatedModel, AnimatedModelOptions, PlayAnimationOptions } from "../types";
+import type {
+  LightingOptions,
+  AnimatedModel,
+  AnimatedModelOptions,
+  PlayAnimationOptions,
+  PhysicsOptions,
+  PhysicsBodyOptions,
+} from "../types";
 
 export class SceneCreator {
   scene: THREE.Scene;
@@ -29,6 +37,13 @@ export class SceneCreator {
   // one mixer is registered the loop keeps drawing, so animations play smoothly.
   private mixers: THREE.AnimationMixer[] = [];
   private lastFrameTime?: number;
+
+  // Optional cannon-es physics world. When present it's stepped every frame and
+  // each linked mesh is synced from its rigid body. Created by enablePhysics().
+  physicsWorld?: CANNON.World;
+  private physicsBodies: { mesh: THREE.Object3D; body: CANNON.Body }[] = [];
+  private physicsFixedStep = 1 / 60;
+  private physicsMaxSubSteps = 3;
 
   // Picking/Raycasting properties
   raycaster: THREE.Raycaster;
@@ -416,6 +431,20 @@ export class SceneCreator {
       for (const mixer of this.mixers) mixer.update(delta);
     }
 
+    // Step the physics world and copy each body's transform onto its mesh.
+    if (this.physicsWorld) {
+      this.physicsWorld.step(this.physicsFixedStep, delta, this.physicsMaxSubSteps);
+      for (const { mesh, body } of this.physicsBodies) {
+        mesh.position.set(body.position.x, body.position.y, body.position.z);
+        mesh.quaternion.set(
+          body.quaternion.x,
+          body.quaternion.y,
+          body.quaternion.z,
+          body.quaternion.w
+        );
+      }
+    }
+
     const scene = this.scene;
     const renderer = this.renderer;
     const camera = this.camera;
@@ -426,6 +455,7 @@ export class SceneCreator {
       camera.position.z !== this.prevCamPos.z ||
       this.animating ||
       this.mixers.length ||
+      this.physicsWorld ||
       this.additionalRenderFn) {
       renderer.render(scene, camera);
     }
@@ -608,6 +638,104 @@ export class SceneCreator {
     return { model, animations: gltf.animations, names, mixer, actions, play, stop };
   }
 
+  /**
+   * Enable rigid-body physics (powered by cannon-es). The world is stepped every
+   * frame and each body added with {@link addBody} keeps its mesh in sync.
+   * @param options - Gravity and default contact material settings
+   * @returns this for method chaining
+   */
+  enablePhysics(options: PhysicsOptions = {}) {
+    if (this.physicsWorld) return this;
+
+    const g = options.gravity ?? new THREE.Vector3(0, -9.82, 0);
+    const gravity = Array.isArray(g)
+      ? new CANNON.Vec3(g[0], g[1], g[2])
+      : new CANNON.Vec3(g.x, g.y, g.z);
+
+    const world = new CANNON.World({ gravity });
+    world.allowSleep = options.allowSleep ?? true;
+    world.defaultContactMaterial.restitution = options.restitution ?? 0.3;
+    world.defaultContactMaterial.friction = options.friction ?? 0.4;
+    this.physicsWorld = world;
+    return this;
+  }
+
+  /**
+   * Give a mesh a rigid body and keep the two in sync each frame. The collision
+   * shape is derived from the mesh's bounding box (or sphere) and its scale.
+   * Requires {@link enablePhysics} to have been called first.
+   * @param mesh - The mesh to simulate (its transform is driven by the body)
+   * @param options - Mass, shape and damping
+   * @returns The created cannon-es Body
+   */
+  addBody(mesh: THREE.Object3D, options: PhysicsBodyOptions = {}) {
+    if (!this.physicsWorld) {
+      throw new Error("Call enablePhysics() before addBody().");
+    }
+    const { mass = 1, shape = "box", linearDamping = 0.01, angularDamping = 0.01 } = options;
+
+    const body = new CANNON.Body({ mass, shape: this.shapeFromMesh(mesh, shape) });
+    body.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
+    body.quaternion.set(
+      mesh.quaternion.x,
+      mesh.quaternion.y,
+      mesh.quaternion.z,
+      mesh.quaternion.w
+    );
+    body.linearDamping = linearDamping;
+    body.angularDamping = angularDamping;
+
+    this.physicsWorld.addBody(body);
+    if (mass > 0) this.physicsBodies.push({ mesh, body });
+    return body;
+  }
+
+  /**
+   * Add a static, infinite ground plane at the given height (default y = 0).
+   * @param y - Height of the ground plane
+   * @returns The created cannon-es Body
+   */
+  addGround(y: number = 0) {
+    if (!this.physicsWorld) {
+      throw new Error("Call enablePhysics() before addGround().");
+    }
+    const body = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+    body.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+    body.position.set(0, y, 0);
+    this.physicsWorld.addBody(body);
+    return body;
+  }
+
+  /**
+   * Remove a body from the physics world and stop syncing its mesh.
+   * @param body - The body returned by {@link addBody} / {@link addGround}
+   * @returns this for method chaining
+   */
+  removeBody(body: CANNON.Body) {
+    if (this.physicsWorld) this.physicsWorld.removeBody(body);
+    this.physicsBodies = this.physicsBodies.filter((b) => b.body !== body);
+    return this;
+  }
+
+  /** Build a cannon-es collision shape from a mesh's geometry and scale. */
+  private shapeFromMesh(mesh: THREE.Object3D, shape: "box" | "sphere"): CANNON.Shape {
+    const geom = (mesh as THREE.Mesh).geometry as THREE.BufferGeometry | undefined;
+    const s = mesh.scale;
+
+    if (shape === "sphere") {
+      if (geom && !geom.boundingSphere) geom.computeBoundingSphere();
+      const radius = geom?.boundingSphere?.radius ?? 0.5;
+      return new CANNON.Sphere(radius * Math.max(s.x, s.y, s.z));
+    }
+
+    const size = new THREE.Vector3(1, 1, 1);
+    if (geom) {
+      if (!geom.boundingBox) geom.computeBoundingBox();
+      geom.boundingBox?.getSize(size);
+    }
+    return new CANNON.Box(new CANNON.Vec3((size.x * s.x) / 2, (size.y * s.y) / 2, (size.z * s.z) / 2));
+  }
+
   /**   * Enable interactive object picking with mouse events
    * @param onClickCallback - Callback when object is clicked
    * @param onContextMenuCallback - Callback when object is right-clicked
@@ -777,6 +905,8 @@ export class SceneCreator {
     this.tweens.removeAll();
     this.mixers.forEach((m) => m.stopAllAction());
     this.mixers = [];
+    this.physicsBodies = [];
+    this.physicsWorld = undefined;
     this.animating = 0;
     this.renderer.dispose();
     this.scene.clear();

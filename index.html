@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Scene Creator — a friendly layer over Three.js</title>
-  <meta name="description" content="A tiny, type-safe toolkit for building interactive 3D scenes on top of Three.js. Lighting, controls, model loading, animation and click-to-pick — in a fluent API." />
+  <title>3D Scene Creator: a friendly layer over Three.js</title>
+  <meta name="description" content="A tiny, type-safe toolkit for building interactive 3D scenes on top of Three.js. Lighting, controls, model loading, animation and click-to-pick, in a fluent API." />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <style>
     :root {
@@ -217,7 +217,7 @@
 
     /* ---------- Examples ---------- */
     .examples { background: var(--bg-soft); border-top: 1px solid var(--border); }
-    .ex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .ex-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
     .ex-card {
       position: relative; display: block;
       background: var(--panel); border: 1px solid var(--border);
@@ -230,6 +230,7 @@
     .ex-1 { background: radial-gradient(120% 120% at 30% 20%, #f0a868, #b65d3c 50%, #2a1d3a); }
     .ex-2 { background: radial-gradient(120% 120% at 70% 30%, #6366f1, #312e81 55%, #0d0d1a); }
     .ex-3 { background: radial-gradient(120% 120% at 50% 40%, #22d3ee, #6366f1 55%, #1a1130); }
+    .ex-4 { background: radial-gradient(120% 120% at 40% 25%, #f472b6, #7c3aed 55%, #150f26); }
     .ex-emoji { position: absolute; bottom: 12px; left: 16px; font-size: 1.7rem; z-index: 2; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
     .ex-body { padding: 20px 22px 24px; }
     .ex-body h3 { font-size: 1.12rem; letter-spacing: -0.01em; }
@@ -238,7 +239,8 @@
     .tag { font-size: 0.72rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-family: var(--mono); }
     .ex-go { margin-top: 16px; color: var(--cyan); font-size: 0.88rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: gap 0.2s; }
     .ex-card:hover .ex-go { gap: 11px; }
-    @media (max-width: 880px) { .ex-grid { grid-template-columns: 1fr; } .ex-body p { min-height: 0; } }
+    @media (max-width: 980px) { .ex-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .ex-grid { grid-template-columns: 1fr; } .ex-body p { min-height: 0; } }
 
     /* ---------- CTA strip ---------- */
     .closer { text-align: center; }
@@ -284,12 +286,12 @@
       <h1>Build <span class="grad">interactive 3D scenes</span> that already work.</h1>
       <p class="lead">
         A tiny, type-safe toolkit on top of Three.js. Lighting, orbit controls, model loading,
-        animation and click-to-pick interaction — wired together behind a fluent API, so you
+        animation and click-to-pick interaction, wired together behind a fluent API, so you
         start from a scene instead of a blank canvas.
       </p>
       <p class="uses">
         Reach for it when you're building <b>product configurators</b>, <b>immersive stories</b>,
-        <b>data&nbsp;visualisations</b>, <b>architectural walkthroughs</b> — anything that needs to feel alive in 3D.
+        <b>data&nbsp;visualisations</b>, <b>architectural walkthroughs</b>: anything that needs to feel alive in 3D.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="#examples">See it in action →</a>
@@ -310,13 +312,13 @@
       <div class="sec-head">
         <span class="kicker">Batteries included</span>
         <h2>The fiddly parts, handled for you.</h2>
-        <p>Everything below ships in the box and is fully configurable — sensible defaults first, full control when you need it.</p>
+        <p>Everything below ships in the box and is fully configurable: sensible defaults first, full control when you need it.</p>
       </div>
       <div class="feature-grid">
         <div class="feature">
           <div class="ico">⚡</div>
           <h3>Renders only when needed</h3>
-          <p>The loop draws a frame only when something actually moves. Static scenes idle at zero — easy on laptops and battery.</p>
+          <p>The loop draws a frame only when something actually moves. Static scenes idle at zero, easy on laptops and battery.</p>
         </div>
         <div class="feature">
           <div class="ico">🔗</div>
@@ -326,7 +328,7 @@
         <div class="feature">
           <div class="ico">💡</div>
           <h3>A lighting rig that looks good</h3>
-          <p>Hemisphere fill, key &amp; fill directional lights, soft shadows and ACES tone mapping — one call, instantly presentable.</p>
+          <p>Hemisphere fill, key &amp; fill directional lights, soft shadows and ACES tone mapping in one call, instantly presentable.</p>
         </div>
         <div class="feature">
           <div class="ico">📦</div>
@@ -336,7 +338,7 @@
         <div class="feature">
           <div class="ico">🎯</div>
           <h3>Click &amp; hover picking</h3>
-          <p>Click, hover and right-click on meshes — with click-vs-drag discrimination, so orbiting never fires a stray click.</p>
+          <p>Click, hover and right-click on meshes, with click-vs-drag discrimination, so orbiting never fires a stray click.</p>
         </div>
         <div class="feature">
           <div class="ico">🎬</div>
@@ -368,7 +370,7 @@
           </div>
 <pre><code><span class="t-key">import</span> { SceneCreator } <span class="t-key">from</span> <span class="t-str">"3d-scene-creator"</span>;
 
-<span class="t-com">// Lighting, orbit controls and a 360° backdrop — chained.</span>
+<span class="t-com">// Lighting, orbit controls and a 360° backdrop, chained.</span>
 <span class="t-key">const</span> scene = <span class="t-key">new</span> <span class="t-fn">SceneCreator</span>(container)
   .<span class="t-meth">addLighting</span>()
   .<span class="t-meth">addControls</span>({ enableDamping: <span class="t-key">true</span> })
@@ -401,7 +403,7 @@ scene.<span class="t-meth">enablePicking</span>((obj) => {
           <div class="ex-thumb ex-1"><span class="ex-emoji">🏖️</span></div>
           <div class="ex-body">
             <h3>360° Panorama</h3>
-            <p>An immersive skybox you can look around — a panoramic image dropped straight into the scene background.</p>
+            <p>An immersive skybox you can look around, a panoramic image dropped straight into the scene background.</p>
             <div class="ex-tags"><span class="tag">addSkybox</span><span class="tag">addControls</span></div>
             <span class="ex-go">Open example →</span>
           </div>
@@ -409,9 +411,9 @@ scene.<span class="t-meth">enablePicking</span>((obj) => {
         <a href="/examples/load-models/index.html" class="ex-card">
           <div class="ex-thumb ex-2"><span class="ex-emoji">📦</span></div>
           <div class="ex-body">
-            <h3>Models &amp; Animation</h3>
-            <p>Load a 3D model, then tween its colour, position and opacity with chained tween.js-backed animations.</p>
-            <div class="ex-tags"><span class="tag">loadModel</span><span class="tag">animate*</span></div>
+            <h3>Animated Model</h3>
+            <p>Load a rigged glTF robot from a CDN and play its skeletal clips: movements, emotes and facial expressions.</p>
+            <div class="ex-tags"><span class="tag">loadAnimatedModel</span><span class="tag">play</span></div>
             <span class="ex-go">Open example →</span>
           </div>
         </a>
@@ -424,6 +426,15 @@ scene.<span class="t-meth">enablePicking</span>((obj) => {
             <span class="ex-go">Open example →</span>
           </div>
         </a>
+        <a href="/examples/physics/index.html" class="ex-card">
+          <div class="ex-thumb ex-4"><span class="ex-emoji">🎲</span></div>
+          <div class="ex-body">
+            <h3>Physics Playground</h3>
+            <p>Drop shapes that fall, bounce and stack under gravity, with rigid bodies powered by cannon-es.</p>
+            <div class="ex-tags"><span class="tag">enablePhysics</span><span class="tag">addBody</span></div>
+            <span class="ex-go">Open example →</span>
+          </div>
+        </a>
       </div>
     </div>
   </section>
@@ -431,7 +442,7 @@ scene.<span class="t-meth">enablePicking</span>((obj) => {
   <section class="closer">
     <div class="wrap">
       <h2>Start from a scene that already works.</h2>
-      <p>Add it to any Three.js project — it's a thin layer, not a framework. You keep full access to the scene, camera and renderer.</p>
+      <p>Add it to any Three.js project. It's a thin layer, not a framework. You keep full access to the scene, camera and renderer.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/davidecarlier/3d-scene-creator" target="_blank" rel="noopener">Get started on GitHub →</a>
         <a class="btn btn-ghost" href="#code">Read the API</a>

@@ -9,5 +9,7 @@ export type {
   DirectionalLightSpec,
   AnimatedModelOptions,
   PlayAnimationOptions,
-  AnimatedModel
+  AnimatedModel,
+  PhysicsOptions,
+  PhysicsBodyOptions
 } from "./types";

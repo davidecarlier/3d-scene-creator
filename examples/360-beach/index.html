@@ -1,13 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite App</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="index.ts"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>360° Panorama - 3D Scene Creator</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --bg: #0a0a12;
+      --panel: rgba(16, 16, 26, 0.6);
+      --border: rgba(255, 255, 255, 0.14);
+      --border-strong: rgba(255, 255, 255, 0.28);
+      --text: #f4f4fb;
+      --muted: #c4c4d4;
+      --faint: #9090a4;
+      --cyan: #22d3ee;
+      --indigo: #6366f1;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); }
+    body { font-family: var(--font); color: var(--text); }
+    #scene { position: fixed; inset: 0; cursor: grab; }
+    #scene:active { cursor: grabbing; }
+
+    .panel {
+      position: fixed; bottom: 24px; left: 24px; z-index: 10;
+      width: 320px; max-width: calc(100vw - 48px);
+      background: var(--panel); backdrop-filter: blur(18px);
+      border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+    .panel .eyebrow { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); font-weight: 700; }
+    .panel h1 { font-size: 1.35rem; letter-spacing: -0.01em; margin-top: 6px; }
+    .panel .sub { color: var(--muted); font-size: 0.85rem; margin-top: 8px; line-height: 1.55; }
+    .panel .sub code { font-family: var(--mono); color: var(--cyan); }
+    .actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      font-family: var(--font); font-size: 0.82rem; color: var(--text);
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      border-radius: 9px; padding: 8px 13px; cursor: pointer;
+      transition: all 0.18s ease; display: inline-flex; align-items: center; gap: 7px;
+    }
+    .btn:hover { border-color: var(--border-strong); background: rgba(255,255,255,0.12); }
+    .btn.active { color: #fff; border-color: transparent; background: linear-gradient(100deg, var(--indigo), #4f46e5); }
+    .btn .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .credit { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 0.72rem; color: var(--faint); }
+    .credit code { font-family: var(--mono); color: var(--cyan); }
+    .source {
+      display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
+      color: var(--muted); text-decoration: none; font-size: 0.78rem; font-weight: 500;
+      transition: color 0.2s;
+    }
+    .source:hover { color: var(--text); }
+
+    .back {
+      position: fixed; top: 22px; left: 22px; z-index: 10;
+      font-size: 0.82rem; color: var(--text); text-decoration: none;
+      border: 1px solid var(--border); border-radius: 9px; padding: 8px 14px;
+      background: var(--panel); backdrop-filter: blur(12px);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .back:hover { border-color: var(--border-strong); background: rgba(255,255,255,0.1); }
+
+    #loader {
+      position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
+      background: var(--bg); transition: opacity 0.6s ease;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.12); border-top-color: var(--cyan);
+      animation: spin 0.8s linear infinite; margin: 0 auto;
+    }
+    .loader-text { margin-top: 16px; color: var(--muted); font-size: 0.85rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 560px) { .panel { left: 12px; right: 12px; bottom: 16px; width: auto; } }
+  </style>
+</head>
+<body>
+  <div id="scene"></div>
+
+  <div id="loader">
+    <div style="text-align:center">
+      <div class="spinner"></div>
+      <div class="loader-text">Loading panorama…</div>
+    </div>
+  </div>
+
+  <a class="back" href="/index.html">← All examples</a>
+
+  <div class="panel">
+    <div class="eyebrow">360° Skybox</div>
+    <h1>Look around the bay</h1>
+    <p class="sub">A single panoramic photo mapped onto the scene as an immersive background with <code>addSkybox()</code>. Drag to look around.</p>
+    <div class="actions">
+      <button class="btn active" id="autorotate"><span class="dot"></span> Auto-rotate</button>
+      <button class="btn" id="reset">Reset view</button>
+    </div>
+    <div class="credit">Photo by Kris Guico on Unsplash · Skybox &amp; controls by <code>SceneCreator</code></div>
+    <a class="source" href="https://github.com/davidecarlier/3d-scene-creator/tree/main/examples/360-beach" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      View source on GitHub
+    </a>
+  </div>
+
+  <script type="module" src="./index.ts"></script>
+</body>
 </html>

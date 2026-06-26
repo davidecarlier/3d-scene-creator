@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:lp": "vite build --config vite.lp.config.js && cp favicon.svg public/ && mkdir -p public/examples/360-beach && cp examples/360-beach/kris-guico-rsB-he-ye7w-unsplash.jpg public/examples/360-beach/",
     "serve": "vite preview"
   },
   "devDependencies": {
@@ -33,7 +34,8 @@
     "src"
   ],
   "dependencies": {
-    "@tweenjs/tween.js": "^25.0.0"
+    "@tweenjs/tween.js": "^25.0.0",
+    "cannon-es": "^0.20.0"
   },
   "description": "A simple utility to create and manage 3D scenes",
   "directories": {

@@ -125,6 +125,34 @@ export interface AnimatedModel {
 }
 
 /**
+ * Options for {@link SceneCreator.enablePhysics}.
+ */
+export interface PhysicsOptions {
+  /** World gravity, as a Vector3 or [x, y, z] (default: [0, -9.82, 0]). */
+  gravity?: THREE.Vector3 | [number, number, number];
+  /** Default bounciness for all contacts, 0 to 1 (default: 0.3). */
+  restitution?: number;
+  /** Default friction for all contacts (default: 0.4). */
+  friction?: number;
+  /** Let resting bodies fall asleep to save CPU (default: true). */
+  allowSleep?: boolean;
+}
+
+/**
+ * Options for {@link SceneCreator.addBody}.
+ */
+export interface PhysicsBodyOptions {
+  /** Body mass in kg. Use 0 for a static (immovable) body (default: 1). */
+  mass?: number;
+  /** Collision shape derived from the mesh (default: "box"). */
+  shape?: "box" | "sphere";
+  /** Linear movement damping, 0 to 1 (default: 0.01). */
+  linearDamping?: number;
+  /** Angular (spin) damping, 0 to 1 (default: 0.01). */
+  angularDamping?: number;
+}
+
+/**
  * Result from raycasting/picking an object
  */
 export interface PickingResult {

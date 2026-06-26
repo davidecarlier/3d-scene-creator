@@ -34,7 +34,7 @@ scene
     maxPolarAngle: Math.PI / 2 - 0.04,
   });
 
-// Dark, foggy backdrop for depth — keeps the robot the focus.
+// Dark, foggy backdrop for depth, keeps the robot the focus.
 scene.scene.background = new THREE.Color(0x0a0a12);
 scene.scene.fog = new THREE.Fog(0x0a0a12, 16, 34);
 
@@ -81,7 +81,7 @@ try {
 } catch (err) {
   console.error("Failed to load model:", err);
   const text = document.querySelector(".loader-text");
-  if (text) text.textContent = "Couldn't load the model — check your connection.";
+  if (text) text.textContent = "Couldn't load the model. Check your connection.";
   throw err;
 }
 

@@ -6,10 +6,11 @@
 - 🎨 **Easy animations**: Color, opacity, position, and camera animations
 - 🎮 **Camera controls**: Built-in OrbitControls with customizable settings
 - 💡 **Configurable lighting rig**: Hemisphere + key/fill directional lights, soft shadows, and ACES tone mapping out of the box
-- 📦 **glTF/GLB loading with caching**: Load once, clone many — ideal for instancing buildings, units, and props
+- 📦 **glTF/GLB loading with caching**: Load once, clone many: ideal for instancing buildings, units, and props
 - 🌅 **360° Skybox support**: Load panoramic images as backgrounds
 - 💾 **Resource cleanup**: Automatic memory management with `dispose()` method
 - 🎯 **Interactive mesh picking**: Click, hover, and right-click detection on 3D objects, with click-vs-drag discrimination on mouse and touch
+- 🧲 **Rigid-body physics**: Optional cannon-es integration: gravity, ground planes, and mesh-linked bodies stepped and synced automatically
 
 
 ## Usage
@@ -102,7 +103,7 @@ await scene.loadModel("/path/to/model.glb", gltfLoader);
 
 `loadGLTF()` uses a built-in `GLTFLoader` and caches each URL, so loading the
 same asset many times only fetches and parses it once. It returns a fresh
-**clone** that is *not* added to the scene — position it and add it yourself.
+**clone** that is *not* added to the scene, so position it and add it yourself.
 Perfect for instancing buildings, units, or props in a game.
 
 ```js
@@ -115,6 +116,32 @@ tree2.position.set(5, 0, 2);
 scene.scene.add(tree1, tree2);
 
 scene.applyShadows(); // make the new meshes cast/receive shadows
+```
+
+#### Animated models
+
+`loadAnimatedModel()` loads a rigged glTF, adds it to the scene, applies
+shadows, builds an `AnimationMixer` and wires it into the render loop (which
+keeps drawing while a clip is playing). It returns a small handle for driving
+playback. `play()` cross-fades between clips. Unlike `loadGLTF()` it keeps the
+original object (not a clone), so the skeleton animates correctly.
+
+```js
+const robot = await scene.loadAnimatedModel("/models/robot.glb", {
+  autoplay: "Idle", // first clip by default; pass false to start paused
+});
+
+console.log(robot.names);          // every available clip name
+robot.play("Walking");             // cross-fade to a looping clip
+robot.play("Wave", { loop: false }); // play once, hold the final frame
+robot.stop();                      // fade the current clip out
+```
+
+You can also register your own mixer if you load a model manually:
+
+```js
+const mixer = new THREE.AnimationMixer(myModel);
+scene.addMixer(mixer); // advanced automatically every frame
 ```
 
 ### Camera Controls
@@ -177,7 +204,7 @@ scene.applyShadows();          // cast + receive on all meshes
 scene.applyShadows(true, false); // cast only (e.g. units that don't catch shadows)
 ```
 
-> **Note:** `addLighting()` adds lights without clearing existing ones — call it once per scene.
+> **Note:** `addLighting()` adds lights without clearing existing ones, so call it once per scene.
 
 ### Skybox / Background
 
@@ -274,6 +301,41 @@ click. Tune the sensitivity (in pixels) via `clickDragThreshold` (default `6`):
 scene.clickDragThreshold = 10;
 ```
 
+### Physics
+
+Opt into rigid-body physics with [cannon-es](https://github.com/pmndrs/cannon-es)
+(MIT). Call `enablePhysics()` once, then link any mesh to a body with
+`addBody()`. The world is stepped every frame and each body's position and
+rotation are copied back onto its mesh automatically.
+
+```js
+scene.addLighting().addControls();
+
+// Turn on physics and drop in a ground plane.
+scene.enablePhysics({ gravity: [0, -12, 0], restitution: 0.4 });
+scene.addGround(0); // static, infinite plane at y = 0
+
+// Any mesh can become a dynamic body. The collision shape is derived from
+// the mesh's bounding box (or sphere) and its scale.
+const box = new THREE.Mesh(
+  new THREE.BoxGeometry(1, 1, 1),
+  new THREE.MeshStandardMaterial({ color: 0x6366f1 })
+);
+box.position.set(0, 8, 0);
+box.castShadow = true;
+scene.scene.add(box);
+
+const body = scene.addBody(box, { mass: 1, shape: "box" });
+// ...the box now falls and rests on the ground, mesh kept in sync each frame.
+
+scene.removeBody(body); // detach when you're done with it
+```
+
+Use `mass: 0` for static bodies, and `shape: "sphere"` for rolling objects.
+The underlying `CANNON.World` is exposed as `scene.physicsWorld` if you need to
+add constraints, custom materials, or collision events. `cannon-es` is only
+loaded when you build with physics, so projects that don't use it pay nothing.
+
 ### Resource Cleanup
 
 Always call `dispose()` when done to prevent memory leaks:
@@ -303,6 +365,8 @@ constructor(
 - `attachRenderer(container: HTMLElement): this` - Attach renderer to DOM
 - `loadModel(url: string, loader?: THREE.Loader): Promise<Object3D>` - Load a 3D model and add it to the scene
 - `loadGLTF(url: string): Promise<Group>` - Load a glTF/GLB model and return a cached, cloneable Group (not added to the scene)
+- `loadAnimatedModel(url: string, options?: AnimatedModelOptions): Promise<AnimatedModel>` - Load a rigged glTF, add it to the scene, and wire its animation clips into the render loop; returns a playback handle
+- `addMixer(mixer: THREE.AnimationMixer): this` / `removeMixer(mixer): this` - Register/unregister an AnimationMixer driven automatically each frame
 - `dispose(): void` - Clean up resources
 
 **Lighting & Scene Setup**
@@ -325,6 +389,16 @@ constructor(
 - `disablePicking(): this` - Disable picking
 - `getSelectedObject(): Object3D | null` - Get currently selected/hovered object
 - `pickAt(mouseX: number, mouseY: number): PickingResult | null` - Pick object at normalized mouse coordinates
+
+**Physics**
+- `enablePhysics(options?: PhysicsOptions): this` - Create the cannon-es world (gravity, default friction/restitution)
+- `addBody(mesh: Object3D, options?: PhysicsBodyOptions): CANNON.Body` - Link a mesh to a rigid body, synced every frame
+- `addGround(y?: number): CANNON.Body` - Add a static, infinite ground plane
+- `removeBody(body: CANNON.Body): this` - Remove a body and stop syncing its mesh
+- `physicsWorld?: CANNON.World` - The underlying world (for constraints, materials, events)
+
+**Animation Mixers**
+- `addMixer(mixer: THREE.AnimationMixer): this` / `removeMixer(mixer): this` - Register/unregister a mixer driven each frame
 
 **Rendering**
 - `startRenderLoop(): this` - Start rendering

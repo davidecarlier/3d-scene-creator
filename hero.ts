@@ -1,4 +1,4 @@
-// Live hero demo — powered by the library itself.
+// Live hero demo, powered by the library itself.
 // Everything you see drifting in the header is a SceneCreator instance:
 // lighting, orbit, and click/hover picking with a few lines of code.
 import { SceneCreator } from "./src/main";
@@ -85,7 +85,7 @@ if (container) {
 
   let hovered: THREE.Object3D | null = null;
 
-  // Hover to highlight, click to recolor — all through the picking API.
+  // Hover to highlight, click to recolor, all through the picking API.
   scene.enablePicking(
     (object: THREE.Object3D) => {
       const next = accents[Math.floor(Math.random() * accents.length)];
