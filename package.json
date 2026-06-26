@@ -33,7 +33,7 @@
     "src"
   ],
   "dependencies": {
-    "gsap": "^3.11.3"
+    "@tweenjs/tween.js": "^25.0.0"
   },
   "description": "A simple utility to create and manage 3D scenes",
   "directories": {

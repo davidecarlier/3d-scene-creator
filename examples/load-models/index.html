@@ -1,13 +1,155 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite App</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="index.ts"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animated Model — 3D Scene Creator</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --bg: #0a0a12;
+      --panel: rgba(20, 20, 32, 0.72);
+      --border: rgba(255, 255, 255, 0.1);
+      --border-strong: rgba(255, 255, 255, 0.2);
+      --text: #f4f4fb;
+      --muted: #a3a3b8;
+      --faint: #6b6b82;
+      --indigo: #6366f1;
+      --cyan: #22d3ee;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); }
+    body { font-family: var(--font); color: var(--text); }
+    #scene { position: fixed; inset: 0; }
+
+    /* Control panel */
+    .panel {
+      position: fixed; top: 20px; left: 20px; z-index: 10;
+      width: 280px; max-width: calc(100vw - 40px);
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+    }
+    .panel .eyebrow {
+      font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--cyan); font-weight: 600;
+    }
+    .panel h1 { font-size: 1.2rem; letter-spacing: -0.01em; margin-top: 6px; }
+    .panel .sub { color: var(--muted); font-size: 0.82rem; margin-top: 6px; line-height: 1.5; }
+
+    .group { margin-top: 18px; }
+    .group-label {
+      font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--faint); font-weight: 600; margin-bottom: 9px;
+    }
+    .btns { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip {
+      font-family: var(--font); font-size: 0.8rem;
+      color: var(--muted); background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border); border-radius: 9px;
+      padding: 7px 12px; cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .chip:hover { color: var(--text); border-color: var(--border-strong); background: rgba(255,255,255,0.08); }
+    .chip.active {
+      color: #fff; border-color: transparent;
+      background: linear-gradient(100deg, var(--indigo), #4f46e5);
+      box-shadow: 0 6px 18px rgba(79, 70, 229, 0.45);
+    }
+
+    .footer-note {
+      margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border);
+      font-size: 0.74rem; color: var(--faint); line-height: 1.5;
+    }
+    .footer-note a { color: var(--muted); }
+    .footer-note code { font-family: var(--mono); color: var(--cyan); }
+
+    /* Hint + loader */
+    .hint {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      z-index: 10; font-size: 0.78rem; color: var(--faint);
+      display: flex; align-items: center; gap: 8px;
+      background: var(--panel); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px;
+    }
+    .hint .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); }
+
+    #loader {
+      position: fixed; inset: 0; z-index: 20;
+      display: grid; place-items: center;
+      background: var(--bg);
+      transition: opacity 0.5s ease;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.12);
+      border-top-color: var(--cyan);
+      animation: spin 0.8s linear infinite;
+    }
+    .loader-text { margin-top: 16px; color: var(--muted); font-size: 0.85rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .back {
+      position: fixed; top: 22px; right: 22px; z-index: 10;
+      font-size: 0.82rem; color: var(--muted); text-decoration: none;
+      border: 1px solid var(--border); border-radius: 9px; padding: 7px 13px;
+      background: var(--panel); backdrop-filter: blur(10px);
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .back:hover { color: var(--text); border-color: var(--border-strong); }
+
+    @media (max-width: 560px) {
+      .panel { top: auto; bottom: 70px; left: 12px; right: 12px; width: auto; }
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="scene"></div>
+
+  <div id="loader">
+    <div style="text-align:center">
+      <div class="spinner"></div>
+      <div class="loader-text">Loading model…</div>
+    </div>
+  </div>
+
+  <a class="back" href="/index.html">← All examples</a>
+
+  <div class="panel">
+    <div class="eyebrow">Live demo</div>
+    <h1>Animated Robot</h1>
+    <p class="sub">A rigged glTF model loaded from a CDN, driven by Three.js' animation system on top of <strong>SceneCreator</strong>.</p>
+
+    <div class="group">
+      <div class="group-label">Movement</div>
+      <div class="btns" id="states"></div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Emotes</div>
+      <div class="btns" id="emotes"></div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Expression</div>
+      <div class="btns" id="expressions"></div>
+    </div>
+
+    <div class="footer-note">
+      Lighting, shadows, orbit &amp; camera handled by <code>addLighting()</code>,
+      <code>addControls()</code> &amp; <code>moveCamera()</code>.
+    </div>
+  </div>
+
+  <div class="hint"><span class="dot"></span> Drag to orbit · scroll to zoom</div>
+
+  <script type="module" src="./index.ts"></script>
+</body>
 </html>

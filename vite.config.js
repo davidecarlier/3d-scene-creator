@@ -16,15 +16,14 @@ module.exports = defineConfig({
       input: {
         main: "./src/main.ts"
       },
-      // make sure to externalize deps that shouldn't be bundled
-      // into your library (three and all its subpath addons, plus gsap)
-      external: [/^three($|\/)/, 'gsap'],
+      // Externalize three and all its subpath addons (it's a peer dependency).
+      // tween.js is small and MIT-licensed, so we bundle it into the output.
+      external: [/^three($|\/)/],
       output: {
         // Provide global variables to use in the UMD build
         // for externalized deps
         globals: {
           three: 'THREE',
-          gsap: 'gsap',
           'three/examples/jsm/controls/OrbitControls.js': 'OrbitControls',
           'three/examples/jsm/loaders/GLTFLoader.js': 'GLTFLoader'
         }

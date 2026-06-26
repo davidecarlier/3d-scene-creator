@@ -1,9 +1,9 @@
 import * as THREE from "three";
 
-import gsap from "gsap";
+import { Tween, Group, Easing } from "@tweenjs/tween.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import type { LightingOptions } from "../types";
+import type { LightingOptions, AnimatedModel, AnimatedModelOptions, PlayAnimationOptions } from "../types";
 
 export class SceneCreator {
   scene: THREE.Scene;
@@ -20,6 +20,15 @@ export class SceneCreator {
   stopLoop: boolean = false;
   scale: number = 1;
   animating: number = 0;
+
+  // Per-instance tween group (tween.js, MIT). Advanced once per frame in the
+  // render loop and cleared on dispose, so tweens never leak across instances.
+  private tweens: Group = new Group();
+
+  // Animation mixers advanced once per frame in the render loop. While at least
+  // one mixer is registered the loop keeps drawing, so animations play smoothly.
+  private mixers: THREE.AnimationMixer[] = [];
+  private lastFrameTime?: number;
 
   // Picking/Raycasting properties
   raycaster: THREE.Raycaster;
@@ -42,7 +51,7 @@ export class SceneCreator {
   private pointerDragging: boolean = false;
 
   /**
-   * Initialize a 3D scene with Three.js and GSAP
+   * Initialize a 3D scene with Three.js and tween.js
    * @param container - Optional HTML element to attach the renderer to
    * @param scale - Scale factor for the scene (default: 1)
    * @param camPos - Initial camera position (default: 10, 10, 10)
@@ -149,6 +158,32 @@ export class SceneCreator {
   }
 
   /**
+   * Tween numeric properties of a target object. Durations are given in seconds; 
+   * the render loop keeps drawing while at least one tween is active, then stops once they complete.
+   * @param target - Object whose numeric props are animated
+   * @param props - Destination values
+   * @param duration - Duration in seconds
+   * @param onComplete - Optional callback fired when the tween finishes
+   * @returns the created Tween
+   */
+  private tween<T extends Record<string, any>>(
+    target: T,
+    props: Partial<Record<keyof T, number>>,
+    duration: number,
+    onComplete?: () => void
+  ) {
+    this.animating++;
+    return new Tween(target, this.tweens)
+      .to(props, duration * 1000)
+      .easing(Easing.Quadratic.Out)
+      .onComplete(() => {
+        this.animating--;
+        if (onComplete) onComplete();
+      })
+      .start();
+  }
+
+  /**
    * Animate the color of a 3D model
    * @param name - Name of the object in the scene
    * @param color - Target color (hex, rgb, or color name)
@@ -164,12 +199,7 @@ export class SceneCreator {
     let rgbColor = new THREE.Color(color);
     obj.traverse((mesh) => {
       if (mesh instanceof THREE.Mesh) {
-        this.animating++;
-        gsap.to(mesh.material.color, {
-          duration, r: rgbColor.r, b: rgbColor.b, g: rgbColor.g, onComplete: () => {
-            this.animating--;
-          }
-        })
+        this.tween(mesh.material.color, { r: rgbColor.r, g: rgbColor.g, b: rgbColor.b }, duration);
       }
     });
     return this;
@@ -192,17 +222,10 @@ export class SceneCreator {
       if (mesh instanceof THREE.Mesh) {
         mesh.material.transparent = true;
         mesh.material.needsUpdate = true;
-        this.animating++;
 
-        gsap.to(mesh.material, {
-          duration,
-          opacity: value,
-          onComplete: () => {
-            this.animating--;
-            mesh.material.needsUpdate = true;
-          }
-        })
-        mesh.material.needsUpdate = true;
+        this.tween(mesh.material, { opacity: value }, duration, () => {
+          mesh.material.needsUpdate = true;
+        });
       }
     });
     return this;
@@ -221,12 +244,7 @@ export class SceneCreator {
       console.warn(`Object with name "${name}" not found in scene`);
       return this;
     }
-    gsap.to(obj.position, {
-      duration,
-      x: newPosition.x,
-      y: newPosition.y,
-      z: newPosition.z
-    });
+    this.tween(obj.position, { x: newPosition.x, y: newPosition.y, z: newPosition.z }, duration);
     return this;
   }
 
@@ -387,6 +405,17 @@ export class SceneCreator {
 
     requestAnimationFrame(this.renderLoop.bind(this));
 
+    // Per-frame delta time (seconds), shared by tweens and animation mixers.
+    const now = performance.now();
+    const delta = this.lastFrameTime === undefined ? 0 : (now - this.lastFrameTime) / 1000;
+    this.lastFrameTime = now;
+
+    // Advance any active tweens and animation mixers before deciding to draw.
+    this.tweens.update();
+    if (this.mixers.length) {
+      for (const mixer of this.mixers) mixer.update(delta);
+    }
+
     const scene = this.scene;
     const renderer = this.renderer;
     const camera = this.camera;
@@ -396,6 +425,7 @@ export class SceneCreator {
       camera.position.y !== this.prevCamPos.y ||
       camera.position.z !== this.prevCamPos.z ||
       this.animating ||
+      this.mixers.length ||
       this.additionalRenderFn) {
       renderer.render(scene, camera);
     }
@@ -429,23 +459,12 @@ export class SceneCreator {
       this.controls.enabled = false;
     }
 
-    gsap.to(camera.position, {
-      duration: 3,
-      x: newPosCam.x,
-      y: newPosCam.y,
-      z: newPosCam.z,
-      onComplete: () => {
-        if (this.controls && typeof reEnable === 'boolean') this.controls.enabled = reEnable;
-        if (typeof callback === 'function') callback();
-      }
+    this.tween(camera.position, { x: newPosCam.x, y: newPosCam.y, z: newPosCam.z }, 3, () => {
+      if (this.controls && typeof reEnable === 'boolean') this.controls.enabled = reEnable;
+      if (typeof callback === 'function') callback();
     });
     if (newPosTarget && this.controls) {
-      gsap.to(this.controls.target, {
-        duration: 3,
-        x: newPosTarget.x,
-        y: newPosTarget.y,
-        z: newPosTarget.z
-      });
+      this.tween(this.controls.target, { x: newPosTarget.x, y: newPosTarget.y, z: newPosTarget.z }, 3);
     }
     return this
   }
@@ -495,6 +514,98 @@ export class SceneCreator {
       this.gltfCache.set(url, pending);
     }
     return pending.then((scene) => scene.clone(true));
+  }
+
+  /**
+   * Register an AnimationMixer so it's advanced automatically every frame by
+   * the render loop. The loop keeps drawing while any mixer is registered.
+   * @param mixer - The mixer to drive
+   * @returns this for method chaining
+   */
+  addMixer(mixer: THREE.AnimationMixer) {
+    if (!this.mixers.includes(mixer)) this.mixers.push(mixer);
+    return this;
+  }
+
+  /**
+   * Stop driving a previously-registered AnimationMixer.
+   * @param mixer - The mixer to remove
+   * @returns this for method chaining
+   */
+  removeMixer(mixer: THREE.AnimationMixer) {
+    const i = this.mixers.indexOf(mixer);
+    if (i !== -1) this.mixers.splice(i, 1);
+    return this;
+  }
+
+  /**
+   * Load a rigged glTF/glb model, add it to the scene, and wire its animation
+   * clips into the render loop. Unlike {@link loadGLTF} (which returns a clone
+   * for static instancing), this keeps the original object so its skeleton
+   * animates correctly, and returns a small handle to control playback.
+   * @param url - URL to the .glb/.gltf file
+   * @param options - Load options (add to scene, shadows, autoplay)
+   * @returns Promise resolving to an {@link AnimatedModel} handle
+   */
+  async loadAnimatedModel(url: string, options: AnimatedModelOptions = {}): Promise<AnimatedModel> {
+    const { add = true, shadows = true, autoplay } = options;
+    if (!this.gltfLoader) {
+      this.gltfLoader = new GLTFLoader();
+    }
+
+    const gltf = await this.gltfLoader.loadAsync(url);
+    const model = gltf.scene;
+
+    if (shadows) {
+      model.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh) {
+          obj.castShadow = true;
+          obj.receiveShadow = true;
+        }
+      });
+    }
+    if (add) this.scene.add(model);
+
+    const mixer = new THREE.AnimationMixer(model);
+    this.addMixer(mixer);
+
+    const actions: Record<string, THREE.AnimationAction> = {};
+    for (const clip of gltf.animations) {
+      actions[clip.name] = mixer.clipAction(clip);
+    }
+
+    let activeAction: THREE.AnimationAction | null = null;
+
+    const play = (name: string, opts: PlayAnimationOptions = {}): THREE.AnimationAction | null => {
+      const { fade = 0.3, loop = true, clampWhenFinished = true } = opts;
+      const next = actions[name];
+      if (!next) {
+        console.warn(`Animation clip "${name}" not found on model "${url}"`);
+        return null;
+      }
+      if (next === activeAction) return next;
+
+      next.loop = loop ? THREE.LoopRepeat : THREE.LoopOnce;
+      next.clampWhenFinished = clampWhenFinished;
+      if (activeAction) activeAction.fadeOut(fade);
+      next.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(fade).play();
+      activeAction = next;
+      return next;
+    };
+
+    const stop = (fade = 0.3) => {
+      if (activeAction) {
+        activeAction.fadeOut(fade);
+        activeAction = null;
+      }
+    };
+
+    const names = gltf.animations.map((c) => c.name);
+    if (autoplay !== false && names.length) {
+      play(typeof autoplay === "string" ? autoplay : names[0], { fade: 0 });
+    }
+
+    return { model, animations: gltf.animations, names, mixer, actions, play, stop };
   }
 
   /**   * Enable interactive object picking with mouse events
@@ -663,6 +774,10 @@ export class SceneCreator {
    */
   dispose() {
     this.stopRenderLoop();
+    this.tweens.removeAll();
+    this.mixers.forEach((m) => m.stopAllAction());
+    this.mixers = [];
+    this.animating = 0;
     this.renderer.dispose();
     this.scene.clear();
     if (this.container && this.renderer.domElement.parentNode === this.container) {

@@ -1,5 +1,5 @@
 ## Features
-- 🎬 The SceneCreator class wraps Three.js and GSAP to provide a simple API to load models, animate objects, and setup 3D scenes
+- 🎬 The SceneCreator class wraps Three.js and tween.js to provide a simple API to load models, animate objects, and setup 3D scenes
 - ⚡ **Optimized render function**: only renders when something is moving
 - 🎯 **Type-safe API**: Full TypeScript support with JSDoc documentation
 - 🔧 **Method chaining**: All methods return `this` for fluent API
