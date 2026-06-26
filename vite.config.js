@@ -4,7 +4,13 @@ import dts from 'vite-plugin-dts'
 
 module.exports = defineConfig({
   plugins: [dts()],
+  // The website build emits to /public; without this the library build would
+  // copy that whole site into dist (vite's default publicDir is "public").
+  publicDir: false,
   build: {
+    // Wipe dist on every build so stale artifacts never leak into the published
+    // package: only the library bundles and type declarations remain.
+    emptyOutDir: true,
     lib: {
       entry: resolve(__dirname, 'src/main.ts'),
       name: '3d-scene-creator',
