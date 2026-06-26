@@ -1,9 +1,19 @@
 import * as THREE from "three";
 
-import gsap from "gsap";
+import { Tween, Group, Easing } from "@tweenjs/tween.js";
+// Type-only import: the runtime module is loaded lazily in enablePhysics(), so
+// projects that never call it don't pull cannon-es into their bundle.
+import type * as CANNON from "cannon-es";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import type { LightingOptions } from "../types";
+import type {
+  LightingOptions,
+  AnimatedModel,
+  AnimatedModelOptions,
+  PlayAnimationOptions,
+  PhysicsOptions,
+  PhysicsBodyOptions,
+} from "../types";
 
 export class SceneCreator {
   scene: THREE.Scene;
@@ -20,6 +30,24 @@ export class SceneCreator {
   stopLoop: boolean = false;
   scale: number = 1;
   animating: number = 0;
+
+  // Per-instance tween group (tween.js, MIT). Advanced once per frame in the
+  // render loop and cleared on dispose, so tweens never leak across instances.
+  private tweens: Group = new Group();
+
+  // Animation mixers advanced once per frame in the render loop. While at least
+  // one mixer is registered the loop keeps drawing, so animations play smoothly.
+  private mixers: THREE.AnimationMixer[] = [];
+  private lastFrameTime?: number;
+
+  // Optional cannon-es physics world. When present it's stepped every frame and
+  // each linked mesh is synced from its rigid body. Created by enablePhysics().
+  physicsWorld?: CANNON.World;
+  private physicsBodies: { mesh: THREE.Object3D; body: CANNON.Body }[] = [];
+  private physicsFixedStep = 1 / 60;
+  private physicsMaxSubSteps = 3;
+  // The cannon-es module, loaded on demand by enablePhysics().
+  private cannon?: typeof import("cannon-es");
 
   // Picking/Raycasting properties
   raycaster: THREE.Raycaster;
@@ -42,7 +70,7 @@ export class SceneCreator {
   private pointerDragging: boolean = false;
 
   /**
-   * Initialize a 3D scene with Three.js and GSAP
+   * Initialize a 3D scene with Three.js and tween.js
    * @param container - Optional HTML element to attach the renderer to
    * @param scale - Scale factor for the scene (default: 1)
    * @param camPos - Initial camera position (default: 10, 10, 10)
@@ -149,6 +177,32 @@ export class SceneCreator {
   }
 
   /**
+   * Tween numeric properties of a target object. Durations are given in seconds; 
+   * the render loop keeps drawing while at least one tween is active, then stops once they complete.
+   * @param target - Object whose numeric props are animated
+   * @param props - Destination values
+   * @param duration - Duration in seconds
+   * @param onComplete - Optional callback fired when the tween finishes
+   * @returns the created Tween
+   */
+  private tween<T extends Record<string, any>>(
+    target: T,
+    props: Partial<Record<keyof T, number>>,
+    duration: number,
+    onComplete?: () => void
+  ) {
+    this.animating++;
+    return new Tween(target, this.tweens)
+      .to(props, duration * 1000)
+      .easing(Easing.Quadratic.Out)
+      .onComplete(() => {
+        this.animating--;
+        if (onComplete) onComplete();
+      })
+      .start();
+  }
+
+  /**
    * Animate the color of a 3D model
    * @param name - Name of the object in the scene
    * @param color - Target color (hex, rgb, or color name)
@@ -164,12 +218,7 @@ export class SceneCreator {
     let rgbColor = new THREE.Color(color);
     obj.traverse((mesh) => {
       if (mesh instanceof THREE.Mesh) {
-        this.animating++;
-        gsap.to(mesh.material.color, {
-          duration, r: rgbColor.r, b: rgbColor.b, g: rgbColor.g, onComplete: () => {
-            this.animating--;
-          }
-        })
+        this.tween(mesh.material.color, { r: rgbColor.r, g: rgbColor.g, b: rgbColor.b }, duration);
       }
     });
     return this;
@@ -192,17 +241,10 @@ export class SceneCreator {
       if (mesh instanceof THREE.Mesh) {
         mesh.material.transparent = true;
         mesh.material.needsUpdate = true;
-        this.animating++;
 
-        gsap.to(mesh.material, {
-          duration,
-          opacity: value,
-          onComplete: () => {
-            this.animating--;
-            mesh.material.needsUpdate = true;
-          }
-        })
-        mesh.material.needsUpdate = true;
+        this.tween(mesh.material, { opacity: value }, duration, () => {
+          mesh.material.needsUpdate = true;
+        });
       }
     });
     return this;
@@ -221,12 +263,7 @@ export class SceneCreator {
       console.warn(`Object with name "${name}" not found in scene`);
       return this;
     }
-    gsap.to(obj.position, {
-      duration,
-      x: newPosition.x,
-      y: newPosition.y,
-      z: newPosition.z
-    });
+    this.tween(obj.position, { x: newPosition.x, y: newPosition.y, z: newPosition.z }, duration);
     return this;
   }
 
@@ -387,6 +424,31 @@ export class SceneCreator {
 
     requestAnimationFrame(this.renderLoop.bind(this));
 
+    // Per-frame delta time (seconds), shared by tweens and animation mixers.
+    const now = performance.now();
+    const delta = this.lastFrameTime === undefined ? 0 : (now - this.lastFrameTime) / 1000;
+    this.lastFrameTime = now;
+
+    // Advance any active tweens and animation mixers before deciding to draw.
+    this.tweens.update();
+    if (this.mixers.length) {
+      for (const mixer of this.mixers) mixer.update(delta);
+    }
+
+    // Step the physics world and copy each body's transform onto its mesh.
+    if (this.physicsWorld) {
+      this.physicsWorld.step(this.physicsFixedStep, delta, this.physicsMaxSubSteps);
+      for (const { mesh, body } of this.physicsBodies) {
+        mesh.position.set(body.position.x, body.position.y, body.position.z);
+        mesh.quaternion.set(
+          body.quaternion.x,
+          body.quaternion.y,
+          body.quaternion.z,
+          body.quaternion.w
+        );
+      }
+    }
+
     const scene = this.scene;
     const renderer = this.renderer;
     const camera = this.camera;
@@ -396,6 +458,8 @@ export class SceneCreator {
       camera.position.y !== this.prevCamPos.y ||
       camera.position.z !== this.prevCamPos.z ||
       this.animating ||
+      this.mixers.length ||
+      this.physicsWorld ||
       this.additionalRenderFn) {
       renderer.render(scene, camera);
     }
@@ -429,23 +493,12 @@ export class SceneCreator {
       this.controls.enabled = false;
     }
 
-    gsap.to(camera.position, {
-      duration: 3,
-      x: newPosCam.x,
-      y: newPosCam.y,
-      z: newPosCam.z,
-      onComplete: () => {
-        if (this.controls && typeof reEnable === 'boolean') this.controls.enabled = reEnable;
-        if (typeof callback === 'function') callback();
-      }
+    this.tween(camera.position, { x: newPosCam.x, y: newPosCam.y, z: newPosCam.z }, 3, () => {
+      if (this.controls && typeof reEnable === 'boolean') this.controls.enabled = reEnable;
+      if (typeof callback === 'function') callback();
     });
     if (newPosTarget && this.controls) {
-      gsap.to(this.controls.target, {
-        duration: 3,
-        x: newPosTarget.x,
-        y: newPosTarget.y,
-        z: newPosTarget.z
-      });
+      this.tween(this.controls.target, { x: newPosTarget.x, y: newPosTarget.y, z: newPosTarget.z }, 3);
     }
     return this
   }
@@ -495,6 +548,205 @@ export class SceneCreator {
       this.gltfCache.set(url, pending);
     }
     return pending.then((scene) => scene.clone(true));
+  }
+
+  /**
+   * Register an AnimationMixer so it's advanced automatically every frame by
+   * the render loop. The loop keeps drawing while any mixer is registered.
+   * @param mixer - The mixer to drive
+   * @returns this for method chaining
+   */
+  addMixer(mixer: THREE.AnimationMixer) {
+    if (!this.mixers.includes(mixer)) this.mixers.push(mixer);
+    return this;
+  }
+
+  /**
+   * Stop driving a previously-registered AnimationMixer.
+   * @param mixer - The mixer to remove
+   * @returns this for method chaining
+   */
+  removeMixer(mixer: THREE.AnimationMixer) {
+    const i = this.mixers.indexOf(mixer);
+    if (i !== -1) this.mixers.splice(i, 1);
+    return this;
+  }
+
+  /**
+   * Load a rigged glTF/glb model, add it to the scene, and wire its animation
+   * clips into the render loop. Unlike {@link loadGLTF} (which returns a clone
+   * for static instancing), this keeps the original object so its skeleton
+   * animates correctly, and returns a small handle to control playback.
+   * @param url - URL to the .glb/.gltf file
+   * @param options - Load options (add to scene, shadows, autoplay)
+   * @returns Promise resolving to an {@link AnimatedModel} handle
+   */
+  async loadAnimatedModel(url: string, options: AnimatedModelOptions = {}): Promise<AnimatedModel> {
+    const { add = true, shadows = true, autoplay } = options;
+    if (!this.gltfLoader) {
+      this.gltfLoader = new GLTFLoader();
+    }
+
+    const gltf = await this.gltfLoader.loadAsync(url);
+    const model = gltf.scene;
+
+    if (shadows) {
+      model.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh) {
+          obj.castShadow = true;
+          obj.receiveShadow = true;
+        }
+      });
+    }
+    if (add) this.scene.add(model);
+
+    const mixer = new THREE.AnimationMixer(model);
+    this.addMixer(mixer);
+
+    const actions: Record<string, THREE.AnimationAction> = {};
+    for (const clip of gltf.animations) {
+      actions[clip.name] = mixer.clipAction(clip);
+    }
+
+    let activeAction: THREE.AnimationAction | null = null;
+
+    const play = (name: string, opts: PlayAnimationOptions = {}): THREE.AnimationAction | null => {
+      const { fade = 0.3, loop = true, clampWhenFinished = true } = opts;
+      const next = actions[name];
+      if (!next) {
+        console.warn(`Animation clip "${name}" not found on model "${url}"`);
+        return null;
+      }
+      if (next === activeAction) return next;
+
+      next.loop = loop ? THREE.LoopRepeat : THREE.LoopOnce;
+      next.clampWhenFinished = clampWhenFinished;
+      if (activeAction) activeAction.fadeOut(fade);
+      next.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(fade).play();
+      activeAction = next;
+      return next;
+    };
+
+    const stop = (fade = 0.3) => {
+      if (activeAction) {
+        activeAction.fadeOut(fade);
+        activeAction = null;
+      }
+    };
+
+    const names = gltf.animations.map((c) => c.name);
+    if (autoplay !== false && names.length) {
+      play(typeof autoplay === "string" ? autoplay : names[0], { fade: 0 });
+    }
+
+    return { model, animations: gltf.animations, names, mixer, actions, play, stop };
+  }
+
+  /**
+   * Enable rigid-body physics (powered by cannon-es). The world is stepped every
+   * frame and each body added with {@link addBody} keeps its mesh in sync.
+   *
+   * cannon-es is imported lazily here, so projects that never call this method
+   * don't bundle it. This makes the method asynchronous: `await` it before
+   * calling {@link addBody} or {@link addGround}.
+   * @param options - Gravity and default contact material settings
+   * @returns Promise resolving to this (for chaining)
+   */
+  async enablePhysics(options: PhysicsOptions = {}) {
+    if (this.physicsWorld) return this;
+
+    const CANNON = (this.cannon ??= await import("cannon-es"));
+
+    const g = options.gravity ?? new THREE.Vector3(0, -9.82, 0);
+    const gravity = Array.isArray(g)
+      ? new CANNON.Vec3(g[0], g[1], g[2])
+      : new CANNON.Vec3(g.x, g.y, g.z);
+
+    const world = new CANNON.World({ gravity });
+    world.allowSleep = options.allowSleep ?? true;
+    world.defaultContactMaterial.restitution = options.restitution ?? 0.3;
+    world.defaultContactMaterial.friction = options.friction ?? 0.4;
+    this.physicsWorld = world;
+    return this;
+  }
+
+  /**
+   * Give a mesh a rigid body and keep the two in sync each frame. The collision
+   * shape is derived from the mesh's bounding box (or sphere) and its scale.
+   * Requires {@link enablePhysics} to have been called first.
+   * @param mesh - The mesh to simulate (its transform is driven by the body)
+   * @param options - Mass, shape and damping
+   * @returns The created cannon-es Body
+   */
+  addBody(mesh: THREE.Object3D, options: PhysicsBodyOptions = {}) {
+    if (!this.physicsWorld || !this.cannon) {
+      throw new Error("Call (and await) enablePhysics() before addBody().");
+    }
+    const CANNON = this.cannon;
+    const { mass = 1, shape = "box", linearDamping = 0.01, angularDamping = 0.01 } = options;
+
+    const body = new CANNON.Body({ mass, shape: this.shapeFromMesh(mesh, shape) });
+    body.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
+    body.quaternion.set(
+      mesh.quaternion.x,
+      mesh.quaternion.y,
+      mesh.quaternion.z,
+      mesh.quaternion.w
+    );
+    body.linearDamping = linearDamping;
+    body.angularDamping = angularDamping;
+
+    this.physicsWorld.addBody(body);
+    if (mass > 0) this.physicsBodies.push({ mesh, body });
+    return body;
+  }
+
+  /**
+   * Add a static, infinite ground plane at the given height (default y = 0).
+   * @param y - Height of the ground plane
+   * @returns The created cannon-es Body
+   */
+  addGround(y: number = 0) {
+    if (!this.physicsWorld || !this.cannon) {
+      throw new Error("Call (and await) enablePhysics() before addGround().");
+    }
+    const CANNON = this.cannon;
+    const body = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+    body.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+    body.position.set(0, y, 0);
+    this.physicsWorld.addBody(body);
+    return body;
+  }
+
+  /**
+   * Remove a body from the physics world and stop syncing its mesh.
+   * @param body - The body returned by {@link addBody} / {@link addGround}
+   * @returns this for method chaining
+   */
+  removeBody(body: CANNON.Body) {
+    if (this.physicsWorld) this.physicsWorld.removeBody(body);
+    this.physicsBodies = this.physicsBodies.filter((b) => b.body !== body);
+    return this;
+  }
+
+  /** Build a cannon-es collision shape from a mesh's geometry and scale. */
+  private shapeFromMesh(mesh: THREE.Object3D, shape: "box" | "sphere"): CANNON.Shape {
+    const CANNON = this.cannon!;
+    const geom = (mesh as THREE.Mesh).geometry as THREE.BufferGeometry | undefined;
+    const s = mesh.scale;
+
+    if (shape === "sphere") {
+      if (geom && !geom.boundingSphere) geom.computeBoundingSphere();
+      const radius = geom?.boundingSphere?.radius ?? 0.5;
+      return new CANNON.Sphere(radius * Math.max(s.x, s.y, s.z));
+    }
+
+    const size = new THREE.Vector3(1, 1, 1);
+    if (geom) {
+      if (!geom.boundingBox) geom.computeBoundingBox();
+      geom.boundingBox?.getSize(size);
+    }
+    return new CANNON.Box(new CANNON.Vec3((size.x * s.x) / 2, (size.y * s.y) / 2, (size.z * s.z) / 2));
   }
 
   /**   * Enable interactive object picking with mouse events
@@ -663,6 +915,12 @@ export class SceneCreator {
    */
   dispose() {
     this.stopRenderLoop();
+    this.tweens.removeAll();
+    this.mixers.forEach((m) => m.stopAllAction());
+    this.mixers = [];
+    this.physicsBodies = [];
+    this.physicsWorld = undefined;
+    this.animating = 0;
     this.renderer.dispose();
     this.scene.clear();
     if (this.container && this.renderer.domElement.parentNode === this.container) {

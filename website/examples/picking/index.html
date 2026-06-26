@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive Picking - 3D Scene Creator</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --bg: #0a0a12;
+      --panel: rgba(20, 20, 32, 0.72);
+      --border: rgba(255, 255, 255, 0.1);
+      --border-strong: rgba(255, 255, 255, 0.2);
+      --text: #f4f4fb;
+      --muted: #a3a3b8;
+      --faint: #6b6b82;
+      --cyan: #22d3ee;
+      --indigo: #6366f1;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); }
+    body { font-family: var(--font); color: var(--text); }
+    #scene { position: fixed; inset: 0; }
+
+    .panel {
+      position: fixed; top: 20px; left: 20px; z-index: 10;
+      width: 270px; max-width: calc(100vw - 40px);
+      background: var(--panel); backdrop-filter: blur(16px);
+      border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+    }
+    .panel .eyebrow { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); font-weight: 700; }
+    .panel h1 { font-size: 1.2rem; letter-spacing: -0.01em; margin-top: 6px; }
+    .legend { margin-top: 14px; display: flex; flex-direction: column; gap: 9px; }
+    .legend-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--muted); }
+    .key {
+      font-family: var(--mono); font-size: 0.72rem; color: var(--text);
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      border-radius: 6px; padding: 2px 8px; white-space: nowrap;
+    }
+
+    .readout {
+      margin-top: 18px; padding: 14px; border-radius: 12px;
+      background: rgba(34, 211, 238, 0.06); border: 1px solid rgba(34, 211, 238, 0.2);
+    }
+    .readout.idle { background: rgba(255,255,255,0.03); border-color: var(--border); }
+    .readout .label { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+    .readout .name { font-size: 1.05rem; font-weight: 650; margin-top: 3px; display: flex; align-items: center; gap: 9px; }
+    .swatch { width: 13px; height: 13px; border-radius: 4px; background: #444; box-shadow: 0 0 10px rgba(0,0,0,0.4); }
+    .stats { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .stat { text-align: center; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 9px; padding: 8px 4px; }
+    .stat .v { font-size: 1.15rem; font-weight: 700; font-family: var(--mono); }
+    .stat .k { font-size: 0.62rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); margin-top: 2px; }
+    .source {
+      display: inline-flex; align-items: center; gap: 7px; margin-top: 16px;
+      color: var(--muted); text-decoration: none; font-size: 0.78rem; font-weight: 500;
+      transition: color 0.2s;
+    }
+    .source:hover { color: var(--text); }
+
+    .back {
+      position: fixed; top: 22px; right: 22px; z-index: 10;
+      font-size: 0.82rem; color: var(--muted); text-decoration: none;
+      border: 1px solid var(--border); border-radius: 9px; padding: 7px 13px;
+      background: var(--panel); backdrop-filter: blur(10px);
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .back:hover { color: var(--text); border-color: var(--border-strong); }
+
+    .hint {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      z-index: 10; font-size: 0.78rem; color: var(--faint);
+      display: flex; align-items: center; gap: 8px;
+      background: var(--panel); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px;
+    }
+    .hint .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); }
+
+    @media (max-width: 560px) { .hint { display: none; } }
+  </style>
+</head>
+<body>
+  <div id="scene"></div>
+
+  <a class="back" href="/index.html">← All examples</a>
+
+  <div class="panel">
+    <div class="eyebrow">Interactive picking</div>
+    <h1>Touch the shapes</h1>
+    <div class="legend">
+      <div class="legend-row"><span class="key">Hover</span> highlight &amp; inspect</div>
+      <div class="legend-row"><span class="key">Click</span> recolour</div>
+      <div class="legend-row"><span class="key">Right-click</span> nudge upward</div>
+    </div>
+
+    <div class="readout idle" id="readout">
+      <div class="label">Hovering</div>
+      <div class="name"><span class="swatch" id="swatch"></span><span id="name">nothing selected</span></div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="dist">-</div><div class="k">Distance</div></div>
+        <div class="stat"><div class="v" id="clicks">0</div><div class="k">Clicks</div></div>
+        <div class="stat"><div class="v" id="rclicks">0</div><div class="k">R-clicks</div></div>
+      </div>
+    </div>
+
+    <a class="source" href="https://github.com/davidecarlier/3d-scene-creator/tree/main/examples/picking" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      View source on GitHub
+    </a>
+  </div>
+
+  <div class="hint"><span class="dot"></span> Drag to orbit · scroll to zoom · right-click a shape</div>
+
+  <script type="module" src="./index.ts"></script>
+</body>
+</html>

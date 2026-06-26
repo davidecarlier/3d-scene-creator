@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Scene Creator: a friendly layer over Three.js</title>
+  <meta name="description" content="A tiny, type-safe toolkit for building interactive 3D scenes on top of Three.js. Lighting, controls, model loading, animation and click-to-pick, in a fluent API." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <style>
+    :root {
+      --bg: #0a0a12;
+      --bg-soft: #11111d;
+      --panel: rgba(255, 255, 255, 0.035);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text: #f4f4fb;
+      --muted: #a3a3b8;
+      --faint: #6b6b82;
+      --indigo: #6366f1;
+      --cyan: #22d3ee;
+      --violet: #a78bfa;
+      --radius: 16px;
+      --maxw: 1120px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+    /* ---------- Nav ---------- */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(14px);
+      background: rgba(10, 10, 18, 0.72);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; }
+    .brand-mark {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: conic-gradient(from 140deg, var(--indigo), var(--cyan), var(--violet), var(--indigo));
+      box-shadow: 0 0 24px rgba(99, 102, 241, 0.5);
+    }
+    .nav-links { display: flex; align-items: center; gap: 28px; }
+    .nav-links a { color: var(--muted); font-size: 0.92rem; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); }
+    .ver { font-family: var(--mono); font-size: 0.72rem; color: var(--faint); border: 1px solid var(--border); padding: 2px 8px; border-radius: 999px; }
+    .gh-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid var(--border-strong);
+      padding: 7px 14px; border-radius: 10px;
+      font-size: 0.88rem; color: var(--text) !important;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .gh-btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.3); }
+
+    @media (max-width: 720px) { .nav-links a.hide-sm, .ver { display: none; } }
+
+    /* ---------- Hero ---------- */
+    .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); }
+    #hero-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+    }
+    .hero-glow {
+      position: absolute; z-index: 0; pointer-events: none;
+      width: 900px; height: 900px; right: -200px; top: -300px;
+      background: radial-gradient(circle, rgba(99,102,241,0.22), transparent 60%);
+      filter: blur(20px);
+    }
+    .hero-fade {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(90deg, rgba(10,10,18,0.92) 0%, rgba(10,10,18,0.7) 38%, rgba(10,10,18,0) 70%);
+    }
+    .hero-content {
+      position: relative; z-index: 2;
+      max-width: var(--maxw); margin: 0 auto; padding: 96px 24px 104px;
+      pointer-events: none;
+    }
+    .hero-content > * { pointer-events: auto; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 0.8rem; color: var(--muted);
+      border: 1px solid var(--border); border-radius: 999px;
+      padding: 5px 13px; margin-bottom: 26px;
+      background: var(--panel);
+    }
+    .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+    h1 {
+      font-size: clamp(2.4rem, 5.6vw, 4.1rem);
+      line-height: 1.04;
+      letter-spacing: -0.03em;
+      font-weight: 700;
+      max-width: 16ch;
+    }
+    h1 .grad {
+      background: linear-gradient(100deg, var(--indigo), var(--cyan) 55%, var(--violet));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .lead {
+      margin-top: 24px;
+      font-size: clamp(1.05rem, 2vw, 1.22rem);
+      color: var(--muted);
+      max-width: 46ch;
+    }
+    .uses {
+      margin-top: 18px; font-size: 0.92rem; color: var(--faint);
+      max-width: 50ch;
+    }
+    .uses b { color: var(--muted); font-weight: 600; }
+    .cta-row { margin-top: 38px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 13px 22px; border-radius: 12px;
+      font-weight: 600; font-size: 0.96rem;
+      transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(100deg, var(--indigo), #4f46e5);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(79, 70, 229, 0.4);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 38px rgba(79,70,229,0.55); }
+    .btn-ghost { border: 1px solid var(--border-strong); color: var(--text); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.05); transform: translateY(-2px); }
+
+    .install {
+      display: inline-flex; align-items: center; gap: 12px;
+      font-family: var(--mono); font-size: 0.86rem;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      padding: 11px 16px; border-radius: 11px; color: var(--text);
+    }
+    .install .prompt { color: var(--cyan); }
+    .install .copy { color: var(--faint); font-family: var(--font); font-size: 0.78rem; border-left: 1px solid var(--border); padding-left: 12px; cursor: pointer; transition: color 0.2s; }
+    .install .copy:hover { color: var(--text); }
+    .hero-hint {
+      position: absolute; z-index: 2; bottom: 22px; right: 26px;
+      font-size: 0.78rem; color: var(--faint);
+      display: flex; align-items: center; gap: 7px;
+    }
+    .hero-hint .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--violet); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+    @media (max-width: 720px) { .hero-fade { background: linear-gradient(180deg, rgba(10,10,18,0.55), rgba(10,10,18,0.92)); } .hero-hint { display: none; } }
+
+    /* ---------- Section scaffolding ---------- */
+    section { padding: 96px 0; }
+    .sec-head { max-width: 640px; margin-bottom: 52px; }
+    .kicker { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--cyan); font-weight: 600; }
+    .sec-head h2 { font-size: clamp(1.8rem, 3.4vw, 2.5rem); letter-spacing: -0.02em; margin-top: 14px; line-height: 1.12; }
+    .sec-head p { color: var(--muted); margin-top: 16px; font-size: 1.05rem; }
+
+    /* ---------- Features ---------- */
+    .features { background: linear-gradient(180deg, var(--bg), var(--bg-soft)); border-bottom: 1px solid var(--border); }
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .feature {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 26px;
+      transition: border-color 0.25s, transform 0.25s, background 0.25s;
+    }
+    .feature:hover { border-color: var(--border-strong); transform: translateY(-4px); background: rgba(255,255,255,0.055); }
+    .feature .ico {
+      width: 42px; height: 42px; border-radius: 11px;
+      display: grid; place-items: center; font-size: 1.3rem; margin-bottom: 16px;
+      background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
+    }
+    .feature h3 { font-size: 1.08rem; letter-spacing: -0.01em; }
+    .feature p { color: var(--muted); font-size: 0.93rem; margin-top: 8px; }
+    @media (max-width: 900px) { .feature-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .feature-grid { grid-template-columns: 1fr; } }
+
+    /* ---------- Code section ---------- */
+    .code-wrap { display: grid; grid-template-columns: 1fr 1.1fr; gap: 56px; align-items: center; }
+    .code-copy h2 { font-size: clamp(1.8rem, 3.4vw, 2.4rem); letter-spacing: -0.02em; line-height: 1.14; }
+    .code-copy p { color: var(--muted); margin-top: 18px; font-size: 1.05rem; }
+    .code-list { margin-top: 26px; display: flex; flex-direction: column; gap: 14px; }
+    .code-list li { list-style: none; display: flex; gap: 12px; color: var(--muted); font-size: 0.96rem; }
+    .code-list .chk { color: var(--cyan); flex-shrink: 0; font-weight: 700; }
+    .code-card {
+      background: #08080f; border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    }
+    .code-bar { display: flex; align-items: center; gap: 8px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+    .code-bar .d { width: 11px; height: 11px; border-radius: 50%; }
+    .code-bar .r { background: #ff5f57; } .code-bar .y { background: #febc2e; } .code-bar .g { background: #28c840; }
+    .code-bar .fname { margin-left: 10px; font-family: var(--mono); font-size: 0.78rem; color: var(--faint); }
+    pre { margin: 0; padding: 22px; overflow-x: auto; font-family: var(--mono); font-size: 0.84rem; line-height: 1.75; }
+    pre code { color: #cdd0e0; }
+    .t-key { color: #c792ea; } .t-fn { color: #82aaff; } .t-str { color: #c3e88d; } .t-com { color: #5b5b73; font-style: italic; } .t-meth { color: #82aaff; } .t-num { color: #f78c6c; }
+    @media (max-width: 880px) { .code-wrap { grid-template-columns: 1fr; gap: 36px; } }
+
+    /* ---------- Examples ---------- */
+    .examples { background: var(--bg-soft); border-top: 1px solid var(--border); }
+    .ex-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+    .ex-card {
+      position: relative; display: block;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      transition: border-color 0.25s, transform 0.25s;
+    }
+    .ex-card:hover { border-color: var(--border-strong); transform: translateY(-5px); }
+    .ex-thumb { height: 150px; position: relative; overflow: hidden; }
+    .ex-thumb::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(8,8,15,0.85)); }
+    .ex-1 { background: radial-gradient(120% 120% at 30% 20%, #f0a868, #b65d3c 50%, #2a1d3a); }
+    .ex-2 { background: radial-gradient(120% 120% at 70% 30%, #6366f1, #312e81 55%, #0d0d1a); }
+    .ex-3 { background: radial-gradient(120% 120% at 50% 40%, #22d3ee, #6366f1 55%, #1a1130); }
+    .ex-4 { background: radial-gradient(120% 120% at 40% 25%, #f472b6, #7c3aed 55%, #150f26); }
+    .ex-emoji { position: absolute; bottom: 12px; left: 16px; font-size: 1.7rem; z-index: 2; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
+    .ex-body { padding: 20px 22px 24px; }
+    .ex-body h3 { font-size: 1.12rem; letter-spacing: -0.01em; }
+    .ex-body p { color: var(--muted); font-size: 0.9rem; margin-top: 8px; min-height: 40px; }
+    .ex-tags { margin-top: 14px; display: flex; gap: 7px; flex-wrap: wrap; }
+    .tag { font-size: 0.72rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-family: var(--mono); }
+    .ex-go { margin-top: 16px; color: var(--cyan); font-size: 0.88rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: gap 0.2s; }
+    .ex-card:hover .ex-go { gap: 11px; }
+    @media (max-width: 980px) { .ex-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .ex-grid { grid-template-columns: 1fr; } .ex-body p { min-height: 0; } }
+
+    /* ---------- CTA strip ---------- */
+    .closer { text-align: center; }
+    .closer h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); letter-spacing: -0.02em; max-width: 18ch; margin: 0 auto; }
+    .closer p { color: var(--muted); margin-top: 18px; font-size: 1.08rem; }
+    .closer .cta-row { justify-content: center; }
+
+    /* ---------- Footer ---------- */
+    footer { border-top: 1px solid var(--border); padding: 44px 0; }
+    .foot-inner { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; color: var(--faint); font-size: 0.88rem; }
+    .foot-inner a { color: var(--muted); transition: color 0.2s; }
+    .foot-inner a:hover { color: var(--text); }
+    .foot-links { display: flex; gap: 22px; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark"></span>
+        3D Scene Creator
+        <span class="ver">v0.2.0</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features" class="hide-sm">Features</a>
+        <a href="/docs.html" class="hide-sm">API Docs</a>
+        <a href="#examples">Examples</a>
+        <a class="gh-btn" href="https://github.com/davidecarlier/3d-scene-creator" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div id="hero-canvas"></div>
+    <div class="hero-glow"></div>
+    <div class="hero-fade"></div>
+    <div class="hero-content">
+      <span class="eyebrow"><span class="dot"></span> Three.js, without the boilerplate</span>
+      <h1>Build <span class="grad">interactive 3D scenes</span> that already work.</h1>
+      <p class="lead">
+        A tiny, type-safe toolkit on top of Three.js. Lighting, orbit controls, model loading,
+        animation and click-to-pick interaction, wired together behind a fluent API, so you
+        start from a scene instead of a blank canvas.
+      </p>
+      <p class="uses">
+        Reach for it when you're building <b>product configurators</b>, <b>immersive stories</b>,
+        <b>data&nbsp;visualisations</b>, <b>architectural walkthroughs</b>: anything that needs to feel alive in 3D.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#examples">See it in action →</a>
+        <a class="btn btn-ghost" href="/docs.html">Read the docs</a>
+      </div>
+      <div class="cta-row">
+        <span class="install">
+          <span><span class="prompt">$</span> npm install 3d-scene-creator three</span>
+          <span class="copy" id="copy-install">Copy</span>
+        </span>
+      </div>
+    </div>
+    <div class="hero-hint"><span class="pulse"></span> Drag to orbit · hover &amp; click the shapes</div>
+  </header>
+
+  <section class="features" id="features">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="kicker">Batteries included</span>
+        <h2>The fiddly parts, handled for you.</h2>
+        <p>Everything below ships in the box and is fully configurable: sensible defaults first, full control when you need it.</p>
+      </div>
+      <div class="feature-grid">
+        <div class="feature">
+          <div class="ico">⚡</div>
+          <h3>Renders only when needed</h3>
+          <p>The loop draws a frame only when something actually moves. Static scenes idle at zero, easy on laptops and battery.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">🔗</div>
+          <h3>Fluent, type-safe API</h3>
+          <p>Every method returns <code>this</code>, so setup reads top to bottom. Full TypeScript types and JSDoc come bundled.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">💡</div>
+          <h3>A lighting rig that looks good</h3>
+          <p>Hemisphere fill, key &amp; fill directional lights, soft shadows and ACES tone mapping in one call, instantly presentable.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">📦</div>
+          <h3>glTF / GLB with clone caching</h3>
+          <p>Load an asset once, clone it as many times as you like. Ideal for scattering props, instances and repeated geometry.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">🎯</div>
+          <h3>Click &amp; hover picking</h3>
+          <p>Click, hover and right-click on meshes, with click-vs-drag discrimination, so orbiting never fires a stray click.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">🎬</div>
+          <h3>Animation &amp; 360° skyboxes</h3>
+          <p>Tween colour, position, opacity and the camera with tween.js, and drop a panoramic image in as a background.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="code">
+    <div class="wrap">
+      <div class="code-wrap">
+        <div class="code-copy">
+          <span class="kicker">From zero to scene</span>
+          <h2>A whole interactive scene in a single chain.</h2>
+          <p>No scene graph wrangling, no render-loop plumbing. Compose what you need and let the library handle the rest.</p>
+          <ul class="code-list">
+            <li><span class="chk">✓</span> Lighting, controls and skybox in three calls</li>
+            <li><span class="chk">✓</span> Load a model and shadow it with one more</li>
+            <li><span class="chk">✓</span> Pick a mesh, animate it, done</li>
+            <li><span class="chk">✓</span> <code>dispose()</code> cleans up the renderer and memory</li>
+          </ul>
+        </div>
+        <div class="code-card">
+          <div class="code-bar">
+            <span class="d r"></span><span class="d y"></span><span class="d g"></span>
+            <span class="fname">scene.ts</span>
+          </div>
+<pre><code><span class="t-key">import</span> { SceneCreator } <span class="t-key">from</span> <span class="t-str">"3d-scene-creator"</span>;
+
+<span class="t-com">// Lighting, orbit controls and a 360° backdrop, chained.</span>
+<span class="t-key">const</span> scene = <span class="t-key">new</span> <span class="t-fn">SceneCreator</span>(container)
+  .<span class="t-meth">addLighting</span>()
+  .<span class="t-meth">addControls</span>({ enableDamping: <span class="t-key">true</span> })
+  .<span class="t-meth">addSkybox</span>(<span class="t-str">"/venice-sunset.jpg"</span>);
+
+<span class="t-com">// Load once, drop it in, give it shadows.</span>
+<span class="t-key">const</span> model = <span class="t-key">await</span> scene.<span class="t-meth">loadGLTF</span>(<span class="t-str">"/chair.glb"</span>);
+model.name = <span class="t-str">"Chair"</span>;
+scene.scene.<span class="t-meth">add</span>(model);
+scene.<span class="t-meth">applyShadows</span>();
+
+<span class="t-com">// Click a mesh → tween its colour over 0.6s.</span>
+scene.<span class="t-meth">enablePicking</span>((obj) => {
+  scene.<span class="t-meth">animateModelColor</span>(obj.name, <span class="t-str">"#6366f1"</span>, <span class="t-num">0.6</span>);
+});</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="examples" id="examples">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="kicker">Live examples</span>
+        <h2>See what a few lines buys you.</h2>
+        <p>Each example is a small, self-contained scene built with the same API the demo above uses. Open one and read the source.</p>
+      </div>
+      <div class="ex-grid">
+        <a href="/examples/360-beach/index.html" class="ex-card">
+          <div class="ex-thumb ex-1"><span class="ex-emoji">🏖️</span></div>
+          <div class="ex-body">
+            <h3>360° Panorama</h3>
+            <p>An immersive skybox you can look around, a panoramic image dropped straight into the scene background.</p>
+            <div class="ex-tags"><span class="tag">addSkybox</span><span class="tag">addControls</span></div>
+            <span class="ex-go">Open example →</span>
+          </div>
+        </a>
+        <a href="/examples/load-models/index.html" class="ex-card">
+          <div class="ex-thumb ex-2"><span class="ex-emoji">📦</span></div>
+          <div class="ex-body">
+            <h3>Animated Model</h3>
+            <p>Load a rigged glTF robot from a CDN and play its skeletal clips: movements, emotes and facial expressions.</p>
+            <div class="ex-tags"><span class="tag">loadAnimatedModel</span><span class="tag">play</span></div>
+            <span class="ex-go">Open example →</span>
+          </div>
+        </a>
+        <a href="/examples/picking/index.html" class="ex-card">
+          <div class="ex-thumb ex-3"><span class="ex-emoji">🎯</span></div>
+          <div class="ex-body">
+            <h3>Interactive Picking</h3>
+            <p>Hover, click and right-click meshes in real time, with click-vs-drag discrimination on mouse and touch.</p>
+            <div class="ex-tags"><span class="tag">enablePicking</span><span class="tag">pickAt</span></div>
+            <span class="ex-go">Open example →</span>
+          </div>
+        </a>
+        <a href="/examples/physics/index.html" class="ex-card">
+          <div class="ex-thumb ex-4"><span class="ex-emoji">🎲</span></div>
+          <div class="ex-body">
+            <h3>Physics Playground</h3>
+            <p>Drop shapes that fall, bounce and stack under gravity, with rigid bodies powered by cannon-es.</p>
+            <div class="ex-tags"><span class="tag">enablePhysics</span><span class="tag">addBody</span></div>
+            <span class="ex-go">Open example →</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="closer">
+    <div class="wrap">
+      <h2>Start from a scene that already works.</h2>
+      <p>Add it to any Three.js project. It's a thin layer, not a framework. You keep full access to the scene, camera and renderer.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/davidecarlier/3d-scene-creator" target="_blank" rel="noopener">Get started on GitHub →</a>
+        <a class="btn btn-ghost" href="/docs.html">Read the API</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap foot-inner">
+      <div>© 2026 Davide Carlier · MIT Licensed</div>
+      <div class="foot-links">
+        <a href="https://github.com/davidecarlier/3d-scene-creator" target="_blank" rel="noopener">GitHub</a>
+        <a href="/docs.html">Docs</a>
+        <a href="https://threejs.org" target="_blank" rel="noopener">Three.js</a>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="/hero.ts"></script>
+  <script>
+    const copy = document.getElementById('copy-install');
+    if (copy) {
+      copy.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText('npm install 3d-scene-creator three');
+          copy.textContent = 'Copied ✓';
+          setTimeout(() => (copy.textContent = 'Copy'), 1600);
+        } catch (e) { /* clipboard unavailable */ }
+      });
+    }
+  </script>
+</body>
+</html>

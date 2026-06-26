@@ -6,5 +6,10 @@ export type {
   PickingResult,
   MouseNormalized,
   LightingOptions,
-  DirectionalLightSpec
+  DirectionalLightSpec,
+  AnimatedModelOptions,
+  PlayAnimationOptions,
+  AnimatedModel,
+  PhysicsOptions,
+  PhysicsBodyOptions
 } from "./types";

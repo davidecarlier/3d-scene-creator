@@ -80,6 +80,79 @@ export interface AnimationConfig {
 }
 
 /**
+ * Options for {@link SceneCreator.loadAnimatedModel}.
+ */
+export interface AnimatedModelOptions {
+  /** Add the loaded model to the scene graph (default: true). */
+  add?: boolean;
+  /** Flag every mesh as a shadow caster/receiver (default: true). */
+  shadows?: boolean;
+  /** Name of the clip to start playing immediately (default: first clip). */
+  autoplay?: string | false;
+}
+
+/**
+ * Options for {@link AnimatedModel.play}.
+ */
+export interface PlayAnimationOptions {
+  /** Cross-fade duration from the current clip, in seconds (default: 0.3). */
+  fade?: number;
+  /** Loop the clip (default: true). When false the clip plays once. */
+  loop?: boolean;
+  /** Hold the final frame when a non-looping clip finishes (default: true). */
+  clampWhenFinished?: boolean;
+}
+
+/**
+ * Handle returned by {@link SceneCreator.loadAnimatedModel} for controlling a
+ * loaded, rigged glTF model and its animation clips.
+ */
+export interface AnimatedModel {
+  /** The loaded model root (added to the scene unless `add: false`). */
+  model: THREE.Group;
+  /** The model's animation clips, as parsed from the glTF. */
+  animations: THREE.AnimationClip[];
+  /** Names of every available clip. */
+  names: string[];
+  /** The AnimationMixer driving this model (already wired into the render loop). */
+  mixer: THREE.AnimationMixer;
+  /** Ready-to-use actions, keyed by clip name. */
+  actions: Record<string, THREE.AnimationAction>;
+  /** Cross-fade to a clip by name. Returns the action, or null if not found. */
+  play(name: string, options?: PlayAnimationOptions): THREE.AnimationAction | null;
+  /** Fade the current clip out (default duration: 0.3s). */
+  stop(fade?: number): void;
+}
+
+/**
+ * Options for {@link SceneCreator.enablePhysics}.
+ */
+export interface PhysicsOptions {
+  /** World gravity, as a Vector3 or [x, y, z] (default: [0, -9.82, 0]). */
+  gravity?: THREE.Vector3 | [number, number, number];
+  /** Default bounciness for all contacts, 0 to 1 (default: 0.3). */
+  restitution?: number;
+  /** Default friction for all contacts (default: 0.4). */
+  friction?: number;
+  /** Let resting bodies fall asleep to save CPU (default: true). */
+  allowSleep?: boolean;
+}
+
+/**
+ * Options for {@link SceneCreator.addBody}.
+ */
+export interface PhysicsBodyOptions {
+  /** Body mass in kg. Use 0 for a static (immovable) body (default: 1). */
+  mass?: number;
+  /** Collision shape derived from the mesh (default: "box"). */
+  shape?: "box" | "sphere";
+  /** Linear movement damping, 0 to 1 (default: 0.01). */
+  linearDamping?: number;
+  /** Angular (spin) damping, 0 to 1 (default: 0.01). */
+  angularDamping?: number;
+}
+
+/**
  * Result from raycasting/picking an object
  */
 export interface PickingResult {

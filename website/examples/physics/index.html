@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Physics Playground - 3D Scene Creator</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --bg: #0a0a12;
+      --panel: rgba(20, 20, 32, 0.72);
+      --border: rgba(255, 255, 255, 0.1);
+      --border-strong: rgba(255, 255, 255, 0.2);
+      --text: #f4f4fb;
+      --muted: #a3a3b8;
+      --faint: #6b6b82;
+      --cyan: #22d3ee;
+      --indigo: #6366f1;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); }
+    body { font-family: var(--font); color: var(--text); }
+    #scene { position: fixed; inset: 0; }
+
+    .panel {
+      position: fixed; top: 20px; left: 20px; z-index: 10;
+      width: 270px; max-width: calc(100vw - 40px);
+      background: var(--panel); backdrop-filter: blur(16px);
+      border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+    }
+    .panel .eyebrow { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cyan); font-weight: 700; }
+    .panel h1 { font-size: 1.2rem; letter-spacing: -0.01em; margin-top: 6px; }
+    .panel .sub { color: var(--muted); font-size: 0.84rem; margin-top: 8px; line-height: 1.55; }
+    .panel .sub code { font-family: var(--mono); color: var(--cyan); }
+
+    .actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      font-family: var(--font); font-size: 0.85rem; color: var(--text);
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      border-radius: 9px; padding: 9px 14px; cursor: pointer;
+      transition: all 0.18s ease; display: inline-flex; align-items: center; gap: 7px;
+    }
+    .btn:hover { border-color: var(--border-strong); background: rgba(255,255,255,0.12); }
+    .btn.primary { color: #fff; border-color: transparent; background: linear-gradient(100deg, var(--indigo), #4f46e5); }
+    .btn.primary:hover { box-shadow: 0 6px 18px rgba(79, 70, 229, 0.45); }
+
+    .count { margin-top: 16px; font-size: 0.82rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .count b { font-family: var(--mono); color: var(--text); font-size: 1rem; }
+
+    .footer-note {
+      margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+      font-size: 0.74rem; color: var(--faint); line-height: 1.5;
+    }
+    .footer-note code { font-family: var(--mono); color: var(--cyan); }
+    .source {
+      display: inline-flex; align-items: center; gap: 7px; margin-top: 12px;
+      color: var(--muted); text-decoration: none; font-size: 0.78rem; font-weight: 500;
+      transition: color 0.2s;
+    }
+    .source:hover { color: var(--text); }
+
+    .back {
+      position: fixed; top: 22px; right: 22px; z-index: 10;
+      font-size: 0.82rem; color: var(--muted); text-decoration: none;
+      border: 1px solid var(--border); border-radius: 9px; padding: 7px 13px;
+      background: var(--panel); backdrop-filter: blur(10px);
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .back:hover { color: var(--text); border-color: var(--border-strong); }
+
+    .hint {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      z-index: 10; font-size: 0.78rem; color: var(--faint);
+      display: flex; align-items: center; gap: 8px;
+      background: var(--panel); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px;
+    }
+    .hint .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); }
+    @media (max-width: 560px) { .hint { display: none; } }
+  </style>
+</head>
+<body>
+  <div id="scene"></div>
+
+  <a class="back" href="/index.html">All examples</a>
+
+  <div class="panel">
+    <div class="eyebrow">Rigid-body physics</div>
+    <h1>Physics Playground</h1>
+    <p class="sub">Shapes fall, bounce and stack under gravity. Each mesh is linked to a body with <code>addBody()</code> and synced every frame.</p>
+    <div class="actions">
+      <button class="btn primary" id="drop">Drop shapes</button>
+      <button class="btn" id="reset">Reset</button>
+    </div>
+    <div class="count">Bodies in play: <b id="count">0</b></div>
+    <div class="footer-note">
+      Powered by cannon-es via <code>enablePhysics()</code>, <code>addGround()</code> and <code>addBody()</code>.
+      <a class="source" href="https://github.com/davidecarlier/3d-scene-creator/tree/main/examples/physics" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        View source on GitHub
+      </a>
+    </div>
+  </div>
+
+  <div class="hint"><span class="dot"></span> Drag to orbit, scroll to zoom, hit Drop to add more</div>
+
+  <script type="module" src="./index.ts"></script>
+</body>
+</html>
