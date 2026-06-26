@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SceneCreator } from "../../src/main";
+import { SceneCreator } from "../../../src/main";
 
 // A rigged, animated glTF model served from a CDN (CC-licensed three.js asset).
 const MODEL_URL =

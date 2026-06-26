@@ -301,6 +301,17 @@ click. Tune the sensitivity (in pixels) via `clickDragThreshold` (default `6`):
 scene.clickDragThreshold = 10;
 ```
 
+A third callback fires on right-click (context menu) of the hovered object;
+the default browser menu is suppressed while picking is enabled:
+
+```js
+scene.enablePicking(
+  (obj) => console.log("Clicked:", obj.name),
+  (obj) => console.log("Hovering:", obj?.name ?? "none"),
+  (obj) => console.log("Right-clicked:", obj.name) // context menu
+);
+```
+
 ### Physics
 
 Opt into rigid-body physics with [cannon-es](https://github.com/pmndrs/cannon-es)
@@ -333,8 +344,8 @@ scene.removeBody(body); // detach when you're done with it
 
 Use `mass: 0` for static bodies, and `shape: "sphere"` for rolling objects.
 The underlying `CANNON.World` is exposed as `scene.physicsWorld` if you need to
-add constraints, custom materials, or collision events. `cannon-es` is only
-loaded when you build with physics, so projects that don't use it pay nothing.
+add constraints, custom materials, or collision events. `cannon-es` (MIT) is a
+dependency of the package and ships with it.
 
 ### Resource Cleanup
 
@@ -385,7 +396,7 @@ constructor(
 - `animateModelOpacity(name: string, value: number, duration?: number): this`
 
 **Interactive Picking**
-- `enablePicking(onClickCallback?: (obj: Object3D) => void, onHoverCallback?: (obj: Object3D | null) => void): this` - Enable object picking with click/hover events
+- `enablePicking(onClickCallback?: (obj: Object3D) => void, onHoverCallback?: (obj: Object3D | null) => void, onContextMenuCallback?: (obj: Object3D) => void): this` - Enable object picking with click/hover/right-click events
 - `disablePicking(): this` - Disable picking
 - `getSelectedObject(): Object3D | null` - Get currently selected/hovered object
 - `pickAt(mouseX: number, mouseY: number): PickingResult | null` - Pick object at normalized mouse coordinates
@@ -396,9 +407,6 @@ constructor(
 - `addGround(y?: number): CANNON.Body` - Add a static, infinite ground plane
 - `removeBody(body: CANNON.Body): this` - Remove a body and stop syncing its mesh
 - `physicsWorld?: CANNON.World` - The underlying world (for constraints, materials, events)
-
-**Animation Mixers**
-- `addMixer(mixer: THREE.AnimationMixer): this` / `removeMixer(mixer): this` - Register/unregister a mixer driven each frame
 
 **Rendering**
 - `startRenderLoop(): this` - Start rendering

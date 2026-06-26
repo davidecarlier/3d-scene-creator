@@ -2,10 +2,11 @@
   "name": "3d-scene-creator",
   "version": "0.2.0",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "build:lp": "vite build --config vite.lp.config.js && cp favicon.svg public/ && mkdir -p public/examples/360-beach && cp examples/360-beach/kris-guico-rsB-he-ye7w-unsplash.jpg public/examples/360-beach/",
-    "serve": "vite preview"
+    "dev": "vite --config vite.website.config.js",
+    "build": "pnpm build:lib",
+    "build:lib": "tsc && vite build",
+    "build:website": "vite build --config vite.website.config.js && mkdir -p public/examples/360-beach && cp website/examples/360-beach/kris-guico-rsB-he-ye7w-unsplash.jpg public/examples/360-beach/",
+    "serve": "vite preview --config vite.website.config.js"
   },
   "devDependencies": {
     "@types/three": "^0.184.0",

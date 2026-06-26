@@ -1,7 +1,7 @@
 // Live hero demo, powered by the library itself.
 // Everything you see drifting in the header is a SceneCreator instance:
 // lighting, orbit, and click/hover picking with a few lines of code.
-import { SceneCreator } from "./src/main";
+import { SceneCreator } from "../src/main";
 import * as THREE from "three";
 
 const container = document.getElementById("hero-canvas") as HTMLElement | null;

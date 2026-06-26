@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SceneCreator } from "../../src/main";
+import { SceneCreator } from "../../../src/main";
 
 const container = document.getElementById("scene") as HTMLElement;
 

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SceneCreator } from "../../src/main";
+import { SceneCreator } from "../../../src/main";
 
 const PANORAMA = "kris-guico-rsB-he-ye7w-unsplash.jpg";
 

@@ -1,7 +1,9 @@
 import * as THREE from "three";
 
 import { Tween, Group, Easing } from "@tweenjs/tween.js";
-import * as CANNON from "cannon-es";
+// Type-only import: the runtime module is loaded lazily in enablePhysics(), so
+// projects that never call it don't pull cannon-es into their bundle.
+import type * as CANNON from "cannon-es";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type {
@@ -44,6 +46,8 @@ export class SceneCreator {
   private physicsBodies: { mesh: THREE.Object3D; body: CANNON.Body }[] = [];
   private physicsFixedStep = 1 / 60;
   private physicsMaxSubSteps = 3;
+  // The cannon-es module, loaded on demand by enablePhysics().
+  private cannon?: typeof import("cannon-es");
 
   // Picking/Raycasting properties
   raycaster: THREE.Raycaster;
@@ -641,11 +645,17 @@ export class SceneCreator {
   /**
    * Enable rigid-body physics (powered by cannon-es). The world is stepped every
    * frame and each body added with {@link addBody} keeps its mesh in sync.
+   *
+   * cannon-es is imported lazily here, so projects that never call this method
+   * don't bundle it. This makes the method asynchronous: `await` it before
+   * calling {@link addBody} or {@link addGround}.
    * @param options - Gravity and default contact material settings
-   * @returns this for method chaining
+   * @returns Promise resolving to this (for chaining)
    */
-  enablePhysics(options: PhysicsOptions = {}) {
+  async enablePhysics(options: PhysicsOptions = {}) {
     if (this.physicsWorld) return this;
+
+    const CANNON = (this.cannon ??= await import("cannon-es"));
 
     const g = options.gravity ?? new THREE.Vector3(0, -9.82, 0);
     const gravity = Array.isArray(g)
@@ -669,9 +679,10 @@ export class SceneCreator {
    * @returns The created cannon-es Body
    */
   addBody(mesh: THREE.Object3D, options: PhysicsBodyOptions = {}) {
-    if (!this.physicsWorld) {
-      throw new Error("Call enablePhysics() before addBody().");
+    if (!this.physicsWorld || !this.cannon) {
+      throw new Error("Call (and await) enablePhysics() before addBody().");
     }
+    const CANNON = this.cannon;
     const { mass = 1, shape = "box", linearDamping = 0.01, angularDamping = 0.01 } = options;
 
     const body = new CANNON.Body({ mass, shape: this.shapeFromMesh(mesh, shape) });
@@ -696,9 +707,10 @@ export class SceneCreator {
    * @returns The created cannon-es Body
    */
   addGround(y: number = 0) {
-    if (!this.physicsWorld) {
-      throw new Error("Call enablePhysics() before addGround().");
+    if (!this.physicsWorld || !this.cannon) {
+      throw new Error("Call (and await) enablePhysics() before addGround().");
     }
+    const CANNON = this.cannon;
     const body = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
     body.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     body.position.set(0, y, 0);
@@ -719,6 +731,7 @@ export class SceneCreator {
 
   /** Build a cannon-es collision shape from a mesh's geometry and scale. */
   private shapeFromMesh(mesh: THREE.Object3D, shape: "box" | "sphere"): CANNON.Shape {
+    const CANNON = this.cannon!;
     const geom = (mesh as THREE.Mesh).geometry as THREE.BufferGeometry | undefined;
     const s = mesh.scale;
 

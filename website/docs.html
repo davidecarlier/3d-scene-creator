@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference - 3D Scene Creator</title>
+  <meta name="description" content="Full API reference for 3D Scene Creator: constructor, loading, lighting, controls, camera, animation, physics, picking, rendering and types." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <style>
+    :root {
+      --bg: #0a0a12;
+      --bg-soft: #11111d;
+      --panel: rgba(255, 255, 255, 0.035);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text: #f4f4fb;
+      --muted: #a3a3b8;
+      --faint: #6b6b82;
+      --indigo: #6366f1;
+      --cyan: #22d3ee;
+      --violet: #a78bfa;
+      --green: #c3e88d;
+      --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --sidebar: 248px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    a { color: inherit; text-decoration: none; }
+    code { font-family: var(--mono); }
+
+    /* Top bar */
+    .topbar {
+      position: sticky; top: 0; z-index: 50; height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; border-bottom: 1px solid var(--border);
+      background: rgba(10, 10, 18, 0.82); backdrop-filter: blur(14px);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; }
+    .brand-mark { width: 26px; height: 26px; border-radius: 7px; background: conic-gradient(from 140deg, var(--indigo), var(--cyan), var(--violet), var(--indigo)); box-shadow: 0 0 20px rgba(99,102,241,0.5); }
+    .brand .tag { font-family: var(--mono); font-size: 0.72rem; color: var(--faint); border: 1px solid var(--border); padding: 2px 8px; border-radius: 999px; }
+    .topbar nav { display: flex; gap: 24px; align-items: center; }
+    .topbar nav a { color: var(--muted); font-size: 0.9rem; transition: color 0.2s; }
+    .topbar nav a:hover { color: var(--text); }
+
+    .layout { display: grid; grid-template-columns: var(--sidebar) minmax(0, 1fr); max-width: 1200px; margin: 0 auto; }
+
+    /* Sidebar */
+    aside {
+      position: sticky; top: 60px; align-self: start;
+      height: calc(100vh - 60px); overflow-y: auto;
+      padding: 28px 16px 60px 24px; border-right: 1px solid var(--border);
+    }
+    aside .group { margin-bottom: 22px; }
+    aside .group-title { font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); font-weight: 700; margin-bottom: 8px; }
+    aside a { display: block; color: var(--muted); font-size: 0.86rem; padding: 4px 0; transition: color 0.15s; }
+    aside a:hover { color: var(--text); }
+    aside a code { font-size: 0.82rem; color: inherit; }
+
+    /* Content */
+    main { padding: 40px 40px 120px; min-width: 0; }
+    .hero-doc { margin-bottom: 40px; }
+    .hero-doc h1 { font-size: 2.2rem; letter-spacing: -0.02em; }
+    .hero-doc p { color: var(--muted); margin-top: 12px; max-width: 60ch; }
+    .install { margin-top: 18px; display: inline-flex; gap: 12px; align-items: center; font-family: var(--mono); font-size: 0.85rem; background: var(--bg-soft); border: 1px solid var(--border); padding: 10px 15px; border-radius: 10px; }
+    .install .p { color: var(--cyan); }
+
+    section.api { padding-top: 36px; border-top: 1px solid var(--border); margin-top: 36px; scroll-margin-top: 72px; }
+    section.api:first-of-type { border-top: none; margin-top: 0; }
+    .api > h2 { font-size: 1.5rem; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+    .api > h2 .ico { font-size: 1.1rem; }
+    .api > .lead { color: var(--muted); margin-top: 8px; margin-bottom: 8px; max-width: 64ch; }
+
+    .method { margin-top: 26px; scroll-margin-top: 72px; }
+    .method .sig {
+      font-family: var(--mono); font-size: 0.86rem; line-height: 1.7;
+      background: #08080f; border: 1px solid var(--border); border-radius: 11px;
+      padding: 14px 16px; overflow-x: auto; color: #cdd0e0;
+    }
+    .method .sig .name { color: #82aaff; font-weight: 600; }
+    .method .sig .kw { color: #c792ea; }
+    .method .sig .ret { color: var(--green); }
+    .method .desc { color: var(--muted); margin-top: 12px; max-width: 66ch; }
+    .method .desc code, .api .lead code, .note code { font-family: var(--mono); font-size: 0.85em; color: var(--cyan); background: rgba(34,211,238,0.08); padding: 1px 5px; border-radius: 5px; }
+
+    .params { margin-top: 14px; display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--border); border-radius: 11px; overflow: hidden; }
+    .params .row { display: grid; grid-template-columns: 160px 1fr; gap: 14px; padding: 11px 16px; background: var(--panel); font-size: 0.88rem; }
+    .params .row .pname { font-family: var(--mono); color: var(--text); }
+    .params .row .pname .opt { color: var(--faint); font-style: italic; }
+    .params .row .ptype { font-family: var(--mono); font-size: 0.78rem; color: var(--violet); display: block; margin-top: 3px; }
+    .params .row .pdesc { color: var(--muted); }
+    .params .row .pdesc .def { color: var(--faint); }
+    @media (max-width: 620px) { .params .row { grid-template-columns: 1fr; gap: 4px; } }
+
+    pre.ex { margin-top: 14px; background: #08080f; border: 1px solid var(--border); border-radius: 11px; padding: 16px; overflow-x: auto; font-family: var(--mono); font-size: 0.82rem; line-height: 1.7; }
+    pre.ex code { color: #cdd0e0; }
+    .t-key { color: #c792ea; } .t-fn { color: #82aaff; } .t-str { color: #c3e88d; } .t-com { color: #5b5b73; font-style: italic; } .t-num { color: #f78c6c; }
+
+    .note { margin-top: 14px; padding: 12px 16px; border-radius: 10px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.22); color: var(--muted); font-size: 0.88rem; }
+
+    .pill { font-family: var(--mono); font-size: 0.7rem; color: var(--cyan); border: 1px solid rgba(34,211,238,0.3); border-radius: 999px; padding: 2px 9px; }
+
+    /* Mobile */
+    .menu-btn { display: none; }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { display: none; position: fixed; inset: 60px 0 0 0; height: auto; width: 100%; z-index: 40; background: var(--bg); border-right: none; }
+      aside.open { display: block; }
+      main { padding: 28px 20px 100px; }
+      .menu-btn { display: inline-flex; background: none; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 6px 11px; font-size: 0.85rem; cursor: pointer; font-family: var(--font); }
+      .topbar nav a.hide-sm { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="brand" href="/index.html">
+      <span class="brand-mark"></span> 3D Scene Creator <span class="tag">API v0.2.0</span>
+    </a>
+    <nav>
+      <a href="/index.html" class="hide-sm">Home</a>
+      <a href="/index.html#examples" class="hide-sm">Examples</a>
+      <a href="https://github.com/davidecarlier/3d-scene-creator" target="_blank" rel="noopener">GitHub</a>
+      <button class="menu-btn" id="menuBtn">Menu</button>
+    </nav>
+  </div>
+
+  <div class="layout">
+    <aside id="sidebar">
+      <div class="group">
+        <div class="group-title">Getting started</div>
+        <a href="#install">Installation</a>
+        <a href="#constructor">Constructor</a>
+      </div>
+      <div class="group">
+        <div class="group-title">Loading</div>
+        <a href="#loadModel"><code>loadModel</code></a>
+        <a href="#loadGLTF"><code>loadGLTF</code></a>
+        <a href="#loadAnimatedModel"><code>loadAnimatedModel</code></a>
+      </div>
+      <div class="group">
+        <div class="group-title">Lighting &amp; scene</div>
+        <a href="#addLighting"><code>addLighting</code></a>
+        <a href="#applyShadows"><code>applyShadows</code></a>
+        <a href="#addSkybox"><code>addSkybox</code></a>
+      </div>
+      <div class="group">
+        <div class="group-title">Controls &amp; camera</div>
+        <a href="#addControls"><code>addControls</code></a>
+        <a href="#moveCamera"><code>moveCamera</code></a>
+        <a href="#resetCameraPosition"><code>resetCameraPosition</code></a>
+      </div>
+      <div class="group">
+        <div class="group-title">Animation</div>
+        <a href="#animateModelColor"><code>animateModelColor</code></a>
+        <a href="#animateModelPosition"><code>animateModelPosition</code></a>
+        <a href="#animateModelOpacity"><code>animateModelOpacity</code></a>
+        <a href="#addMixer"><code>addMixer</code> / <code>removeMixer</code></a>
+      </div>
+      <div class="group">
+        <div class="group-title">Physics</div>
+        <a href="#enablePhysics"><code>enablePhysics</code></a>
+        <a href="#addBody"><code>addBody</code></a>
+        <a href="#addGround"><code>addGround</code></a>
+        <a href="#removeBody"><code>removeBody</code></a>
+      </div>
+      <div class="group">
+        <div class="group-title">Picking</div>
+        <a href="#enablePicking"><code>enablePicking</code></a>
+        <a href="#disablePicking"><code>disablePicking</code></a>
+        <a href="#getSelectedObject"><code>getSelectedObject</code></a>
+        <a href="#pickAt"><code>pickAt</code></a>
+      </div>
+      <div class="group">
+        <div class="group-title">Rendering</div>
+        <a href="#startRenderLoop"><code>startRenderLoop</code> / <code>stop</code></a>
+        <a href="#setAdditionalRenderFn"><code>setAdditionalRenderFn</code></a>
+        <a href="#attachRenderer"><code>attachRenderer</code></a>
+        <a href="#dispose"><code>dispose</code></a>
+      </div>
+      <div class="group">
+        <div class="group-title">Reference</div>
+        <a href="#properties">Properties</a>
+        <a href="#types">Types</a>
+      </div>
+    </aside>
+
+    <main>
+      <div class="hero-doc" id="install">
+        <h1>API Reference</h1>
+        <p><strong>SceneCreator</strong> is a single class that wraps a Three.js scene, camera, renderer and orbit controls, with helpers for loading, lighting, animation, physics and picking. Every configuration method returns <code>this</code>, so calls chain.</p>
+        <div class="install"><span><span class="p">$</span> pnpm add 3d-scene-creator three</span></div>
+        <pre class="ex"><code><span class="t-key">import</span> { SceneCreator } <span class="t-key">from</span> <span class="t-str">"3d-scene-creator"</span>;
+<span class="t-key">import</span> * <span class="t-key">as</span> THREE <span class="t-key">from</span> <span class="t-str">"three"</span>;
+
+<span class="t-key">const</span> scene = <span class="t-key">new</span> <span class="t-fn">SceneCreator</span>(container)
+  .<span class="t-fn">addLighting</span>()
+  .<span class="t-fn">addControls</span>()
+  .<span class="t-fn">addSkybox</span>(<span class="t-str">"/panorama.jpg"</span>);</code></pre>
+        <div class="note"><code>three</code> is a peer dependency (install it yourself). <code>cannon-es</code> (MIT) is a dependency that ships with the package and powers the physics API.</div>
+      </div>
+
+      <!-- CONSTRUCTOR -->
+      <section class="api" id="constructor">
+        <h2><span class="ico">🏗️</span> Constructor</h2>
+        <div class="method">
+          <div class="sig"><span class="kw">new</span> <span class="name">SceneCreator</span>(container?: HTMLElement, scale?: number, camPos?: Vector3, targetPos?: Vector3)</div>
+          <p class="desc">Create a scene. If a container is given, the renderer is attached and the render loop starts immediately.</p>
+          <div class="params">
+            <div class="row"><div class="pname">container <span class="opt">optional</span><span class="ptype">HTMLElement</span></div><div class="pdesc">Element the canvas is appended to and sized from.</div></div>
+            <div class="row"><div class="pname">scale <span class="opt">optional</span><span class="ptype">number</span></div><div class="pdesc">Scene scale factor affecting camera distances and clipping. <span class="def">Default: 1</span></div></div>
+            <div class="row"><div class="pname">camPos <span class="opt">optional</span><span class="ptype">THREE.Vector3</span></div><div class="pdesc">Initial camera position. <span class="def">Default: (10, 10, 10) × scale</span></div></div>
+            <div class="row"><div class="pname">targetPos <span class="opt">optional</span><span class="ptype">THREE.Vector3</span></div><div class="pdesc">Initial look-at target. <span class="def">Default: (0, 0, 0)</span></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LOADING -->
+      <section class="api" id="loading">
+        <h2><span class="ico">📦</span> Loading models</h2>
+
+        <div class="method" id="loadModel">
+          <div class="sig"><span class="name">loadModel</span>(url: string, loader?: THREE.Loader): <span class="ret">Promise&lt;Object3D&gt;</span></div>
+          <p class="desc">Load a model and add it to the scene. Uses <code>THREE.ObjectLoader</code> by default; pass any loader (e.g. <code>GLTFLoader</code>) to override.</p>
+          <div class="params">
+            <div class="row"><div class="pname">url<span class="ptype">string</span></div><div class="pdesc">URL of the model file.</div></div>
+            <div class="row"><div class="pname">loader <span class="opt">optional</span><span class="ptype">THREE.Loader</span></div><div class="pdesc">Custom loader instance. <span class="def">Default: ObjectLoader</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="loadGLTF">
+          <div class="sig"><span class="name">loadGLTF</span>(url: string): <span class="ret">Promise&lt;Group&gt;</span></div>
+          <p class="desc">Load a glTF/GLB and return a fresh <strong>clone</strong> of its scene, <em>not</em> added to the graph. Each URL is fetched and parsed once and cached, so repeated calls are cheap. Ideal for instancing static props. Position it and add it yourself, then call <code>applyShadows()</code>.</p>
+          <div class="note">Clones use <code>Object3D.clone()</code>, which does not duplicate skeletons. For animated/rigged models use <a href="#loadAnimatedModel"><code>loadAnimatedModel</code></a> instead.</div>
+        </div>
+
+        <div class="method" id="loadAnimatedModel">
+          <div class="sig"><span class="name">loadAnimatedModel</span>(url: string, options?: <a href="#t-animatedmodeloptions">AnimatedModelOptions</a>): <span class="ret">Promise&lt;<a href="#t-animatedmodel">AnimatedModel</a>&gt;</span></div>
+          <p class="desc">Load a rigged glTF, add it to the scene, apply shadows, build an <code>AnimationMixer</code> and wire it into the render loop. Returns a handle to control playback. The render loop keeps drawing while a clip plays.</p>
+          <div class="params">
+            <div class="row"><div class="pname">url<span class="ptype">string</span></div><div class="pdesc">URL of the .glb/.gltf file.</div></div>
+            <div class="row"><div class="pname">options <span class="opt">optional</span><span class="ptype">AnimatedModelOptions</span></div><div class="pdesc">Add-to-scene, shadows and autoplay settings.</div></div>
+          </div>
+          <pre class="ex"><code><span class="t-key">const</span> robot = <span class="t-key">await</span> scene.<span class="t-fn">loadAnimatedModel</span>(<span class="t-str">"/robot.glb"</span>, { autoplay: <span class="t-str">"Idle"</span> });
+robot.<span class="t-fn">play</span>(<span class="t-str">"Walking"</span>);                 <span class="t-com">// cross-fade to a looping clip</span>
+robot.<span class="t-fn">play</span>(<span class="t-str">"Wave"</span>, { loop: <span class="t-key">false</span> }); <span class="t-com">// play once, hold last frame</span>
+robot.<span class="t-fn">stop</span>();                          <span class="t-com">// fade the current clip out</span></code></pre>
+        </div>
+      </section>
+
+      <!-- LIGHTING -->
+      <section class="api" id="lighting">
+        <h2><span class="ico">💡</span> Lighting &amp; scene</h2>
+
+        <div class="method" id="addLighting">
+          <div class="sig"><span class="name">addLighting</span>(options?: <a href="#t-lightingoptions">LightingOptions</a>): <span class="ret">this</span></div>
+          <p class="desc">Add a ready-to-use rig: a hemisphere fill, a shadow-casting key light, an opposite fill light, soft shadows and ACES Filmic tone mapping. Every part is configurable and has sensible defaults. Adds lights without clearing existing ones, so call it once per scene.</p>
+        </div>
+
+        <div class="method" id="applyShadows">
+          <div class="sig"><span class="name">applyShadows</span>(cast?: boolean, receive?: boolean): <span class="ret">this</span></div>
+          <p class="desc">Flag every mesh currently in the scene as a shadow caster and/or receiver. Call it after adding your meshes (and after <code>addLighting()</code> with shadows on).</p>
+          <div class="params">
+            <div class="row"><div class="pname">cast <span class="opt">optional</span><span class="ptype">boolean</span></div><div class="pdesc">Whether meshes cast shadows. <span class="def">Default: true</span></div></div>
+            <div class="row"><div class="pname">receive <span class="opt">optional</span><span class="ptype">boolean</span></div><div class="pdesc">Whether meshes receive shadows. <span class="def">Default: true</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="addSkybox">
+          <div class="sig"><span class="name">addSkybox</span>(url?: string, color?: ColorRepresentation, name?: string): <span class="ret">this</span></div>
+          <p class="desc">Add a 360° background. Pass a panoramic image URL, or omit it and pass a solid color.</p>
+          <div class="params">
+            <div class="row"><div class="pname">url <span class="opt">optional</span><span class="ptype">string</span></div><div class="pdesc">URL of a 360° image texture.</div></div>
+            <div class="row"><div class="pname">color <span class="opt">optional</span><span class="ptype">ColorRepresentation</span></div><div class="pdesc">Fallback/solid color. <span class="def">Default: "#B2FFFF"</span></div></div>
+            <div class="row"><div class="pname">name <span class="opt">optional</span><span class="ptype">string</span></div><div class="pdesc">Name assigned to the skybox object.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONTROLS & CAMERA -->
+      <section class="api" id="controls">
+        <h2><span class="ico">🎮</span> Controls &amp; camera</h2>
+
+        <div class="method" id="addControls">
+          <div class="sig"><span class="name">addControls</span>(overrides?: <a href="#t-orbitcontrolsconfig">OrbitControlsConfig</a>): <span class="ret">this</span></div>
+          <p class="desc">Attach <code>OrbitControls</code> with damping and sensible limits. Any OrbitControls property can be overridden, including <code>autoRotate</code>, <code>enableZoom</code>, <code>enablePan</code> and the distance/angle limits.</p>
+        </div>
+
+        <div class="method" id="moveCamera">
+          <div class="sig"><span class="name">moveCamera</span>(position: Vector3, target?: Vector3, callback?: () =&gt; void): <span class="ret">this</span></div>
+          <p class="desc">Animate the camera (and optionally the orbit target) to a new position over ~3 seconds. Controls are disabled during the move and restored when it finishes.</p>
+          <div class="params">
+            <div class="row"><div class="pname">position<span class="ptype">THREE.Vector3</span></div><div class="pdesc">Target camera position.</div></div>
+            <div class="row"><div class="pname">target <span class="opt">optional</span><span class="ptype">THREE.Vector3</span></div><div class="pdesc">New orbit target to tween toward.</div></div>
+            <div class="row"><div class="pname">callback <span class="opt">optional</span><span class="ptype">() =&gt; void</span></div><div class="pdesc">Called when the move completes.</div></div>
+          </div>
+        </div>
+
+        <div class="method" id="resetCameraPosition">
+          <div class="sig"><span class="name">resetCameraPosition</span>(): <span class="ret">this</span></div>
+          <p class="desc">Animate the camera back to its initial position and target.</p>
+        </div>
+      </section>
+
+      <!-- ANIMATION -->
+      <section class="api" id="animation">
+        <h2><span class="ico">🎬</span> Animation</h2>
+        <p class="lead">Property tweens are powered by <a href="https://github.com/tweenjs/tween.js" target="_blank" rel="noopener">tween.js</a> (MIT) and target objects by their <code>name</code>.</p>
+
+        <div class="method" id="animateModelColor">
+          <div class="sig"><span class="name">animateModelColor</span>(name: string, color: string | number, duration?: number): <span class="ret">this</span></div>
+          <p class="desc">Tween every mesh material color under the named object toward a target color.</p>
+          <div class="params">
+            <div class="row"><div class="pname">name<span class="ptype">string</span></div><div class="pdesc">Name of the object in the scene.</div></div>
+            <div class="row"><div class="pname">color<span class="ptype">string | number</span></div><div class="pdesc">Target color (hex, name, or numeric).</div></div>
+            <div class="row"><div class="pname">duration <span class="opt">optional</span><span class="ptype">number</span></div><div class="pdesc">Seconds. <span class="def">Default: 2</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="animateModelPosition">
+          <div class="sig"><span class="name">animateModelPosition</span>(name: string, position: Vector3, duration?: number): <span class="ret">this</span></div>
+          <p class="desc">Tween the named object's position toward a target vector.</p>
+          <div class="params">
+            <div class="row"><div class="pname">name<span class="ptype">string</span></div><div class="pdesc">Name of the object in the scene.</div></div>
+            <div class="row"><div class="pname">position<span class="ptype">THREE.Vector3</span></div><div class="pdesc">Target position.</div></div>
+            <div class="row"><div class="pname">duration <span class="opt">optional</span><span class="ptype">number</span></div><div class="pdesc">Seconds. <span class="def">Default: 2</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="animateModelOpacity">
+          <div class="sig"><span class="name">animateModelOpacity</span>(name: string, value: number, duration?: number): <span class="ret">this</span></div>
+          <p class="desc">Tween the named object's material opacity (materials are set transparent automatically).</p>
+          <div class="params">
+            <div class="row"><div class="pname">name<span class="ptype">string</span></div><div class="pdesc">Name of the object in the scene.</div></div>
+            <div class="row"><div class="pname">value<span class="ptype">number</span></div><div class="pdesc">Target opacity, 0 to 1.</div></div>
+            <div class="row"><div class="pname">duration <span class="opt">optional</span><span class="ptype">number</span></div><div class="pdesc">Seconds. <span class="def">Default: 2</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="addMixer">
+          <div class="sig"><span class="name">addMixer</span>(mixer: THREE.AnimationMixer): <span class="ret">this</span> &nbsp;·&nbsp; <span class="name">removeMixer</span>(mixer): <span class="ret">this</span></div>
+          <p class="desc">Register (or unregister) an <code>AnimationMixer</code> so it is advanced automatically every frame. The render loop keeps drawing while any mixer is registered. <code>loadAnimatedModel()</code> does this for you.</p>
+        </div>
+      </section>
+
+      <!-- PHYSICS -->
+      <section class="api" id="physics">
+        <h2><span class="ico">🧲</span> Physics</h2>
+        <p class="lead">Optional rigid-body simulation powered by <a href="https://github.com/pmndrs/cannon-es" target="_blank" rel="noopener">cannon-es</a> (MIT). Enable it once, then link meshes to bodies; the world is stepped and synced every frame.</p>
+
+        <div class="method" id="enablePhysics">
+          <div class="sig"><span class="name">enablePhysics</span>(options?: <a href="#t-physicsoptions">PhysicsOptions</a>): <span class="ret">this</span></div>
+          <p class="desc">Create the <code>CANNON.World</code> with the given gravity and default contact material. No-op if physics is already enabled.</p>
+          <pre class="ex"><code>scene.<span class="t-fn">enablePhysics</span>({ gravity: [<span class="t-num">0</span>, <span class="t-num">-12</span>, <span class="t-num">0</span>], restitution: <span class="t-num">0.4</span> });
+scene.<span class="t-fn">addGround</span>();
+<span class="t-key">const</span> body = scene.<span class="t-fn">addBody</span>(mesh, { mass: <span class="t-num">1</span>, shape: <span class="t-str">"box"</span> });</code></pre>
+        </div>
+
+        <div class="method" id="addBody">
+          <div class="sig"><span class="name">addBody</span>(mesh: Object3D, options?: <a href="#t-physicsbodyoptions">PhysicsBodyOptions</a>): <span class="ret">CANNON.Body</span></div>
+          <p class="desc">Give a mesh a rigid body and keep the two in sync each frame. The collision shape is derived from the mesh's bounding box (or sphere) and its scale. Requires <code>enablePhysics()</code> first.</p>
+          <div class="params">
+            <div class="row"><div class="pname">mesh<span class="ptype">THREE.Object3D</span></div><div class="pdesc">Mesh whose transform is driven by the body.</div></div>
+            <div class="row"><div class="pname">options <span class="opt">optional</span><span class="ptype">PhysicsBodyOptions</span></div><div class="pdesc">Mass, shape and damping.</div></div>
+          </div>
+        </div>
+
+        <div class="method" id="addGround">
+          <div class="sig"><span class="name">addGround</span>(y?: number): <span class="ret">CANNON.Body</span></div>
+          <p class="desc">Add a static, infinite horizontal ground plane.</p>
+          <div class="params">
+            <div class="row"><div class="pname">y <span class="opt">optional</span><span class="ptype">number</span></div><div class="pdesc">Height of the plane. <span class="def">Default: 0</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="removeBody">
+          <div class="sig"><span class="name">removeBody</span>(body: CANNON.Body): <span class="ret">this</span></div>
+          <p class="desc">Remove a body from the world and stop syncing its mesh.</p>
+          <div class="note">The underlying world is exposed as <code>scene.physicsWorld</code> for constraints, custom materials and collision events.</div>
+        </div>
+      </section>
+
+      <!-- PICKING -->
+      <section class="api" id="picking">
+        <h2><span class="ico">🎯</span> Picking</h2>
+        <p class="lead">Raycast-based interaction with click-vs-drag discrimination, so orbiting never fires a stray click. Tune the threshold (pixels) via <code>scene.clickDragThreshold</code> (default 6).</p>
+
+        <div class="method" id="enablePicking">
+          <div class="sig"><span class="name">enablePicking</span>(onClick?, onHover?, onContextMenu?): <span class="ret">this</span></div>
+          <p class="desc">Enable pointer picking and register callbacks. Hover fires with the object or <code>null</code>; click and right-click fire with the picked object.</p>
+          <div class="params">
+            <div class="row"><div class="pname">onClick <span class="opt">optional</span><span class="ptype">(obj: Object3D) =&gt; void</span></div><div class="pdesc">Called on a click (not a drag).</div></div>
+            <div class="row"><div class="pname">onHover <span class="opt">optional</span><span class="ptype">(obj: Object3D | null) =&gt; void</span></div><div class="pdesc">Called when the hovered object changes.</div></div>
+            <div class="row"><div class="pname">onContextMenu <span class="opt">optional</span><span class="ptype">(obj: Object3D) =&gt; void</span></div><div class="pdesc">Called on right-click.</div></div>
+          </div>
+        </div>
+
+        <div class="method" id="disablePicking">
+          <div class="sig"><span class="name">disablePicking</span>(): <span class="ret">this</span></div>
+          <p class="desc">Disable picking and detach its listeners.</p>
+        </div>
+
+        <div class="method" id="getSelectedObject">
+          <div class="sig"><span class="name">getSelectedObject</span>(): <span class="ret">Object3D | null</span></div>
+          <p class="desc">Return the currently hovered/selected object, or <code>null</code>.</p>
+        </div>
+
+        <div class="method" id="pickAt">
+          <div class="sig"><span class="name">pickAt</span>(mouseX: number, mouseY: number): <span class="ret"><a href="#t-pickingresult">PickingResult</a> | null</span></div>
+          <p class="desc">Programmatically raycast at normalized device coordinates (each in the range -1 to 1) and return the closest hit.</p>
+          <div class="params">
+            <div class="row"><div class="pname">mouseX<span class="ptype">number</span></div><div class="pdesc">Normalized X, -1 (left) to 1 (right).</div></div>
+            <div class="row"><div class="pname">mouseY<span class="ptype">number</span></div><div class="pdesc">Normalized Y, -1 (bottom) to 1 (top).</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RENDERING -->
+      <section class="api" id="rendering">
+        <h2><span class="ico">⚡</span> Rendering &amp; lifecycle</h2>
+        <p class="lead">The loop is render-on-demand: a frame is drawn only when the camera moves, a tween/mixer/physics body is active, or an additional render function is set.</p>
+
+        <div class="method" id="startRenderLoop">
+          <div class="sig"><span class="name">startRenderLoop</span>(): <span class="ret">this</span> &nbsp;·&nbsp; <span class="name">stopRenderLoop</span>(): <span class="ret">this</span></div>
+          <p class="desc">Start or stop the requestAnimationFrame loop. The loop starts automatically when a container is attached.</p>
+        </div>
+
+        <div class="method" id="setAdditionalRenderFn">
+          <div class="sig"><span class="name">setAdditionalRenderFn</span>(fn: () =&gt; void): <span class="ret">this</span></div>
+          <p class="desc">Register a callback run every frame (e.g. for custom per-frame logic). Setting it also keeps the loop rendering continuously.</p>
+        </div>
+
+        <div class="method" id="attachRenderer">
+          <div class="sig"><span class="name">attachRenderer</span>(container: HTMLElement): <span class="ret">this</span></div>
+          <p class="desc">Append the canvas to a container, size it, and start the render loop. Called for you when a container is passed to the constructor.</p>
+        </div>
+
+        <div class="method" id="dispose">
+          <div class="sig"><span class="name">dispose</span>(): <span class="ret">void</span></div>
+          <p class="desc">Stop rendering, clear tweens, mixers and physics, dispose the renderer and remove the canvas. Call it when you are done to avoid leaks.</p>
+        </div>
+      </section>
+
+      <!-- PROPERTIES -->
+      <section class="api" id="properties">
+        <h2><span class="ico">🔧</span> Properties</h2>
+        <p class="lead">SceneCreator is a thin layer: the raw Three.js objects stay accessible for anything the helpers don't cover.</p>
+        <div class="params">
+          <div class="row"><div class="pname">scene<span class="ptype">THREE.Scene</span></div><div class="pdesc">The scene graph. Add your own objects with <code>scene.scene.add(...)</code>.</div></div>
+          <div class="row"><div class="pname">camera<span class="ptype">THREE.PerspectiveCamera</span></div><div class="pdesc">The active camera.</div></div>
+          <div class="row"><div class="pname">renderer<span class="ptype">THREE.WebGLRenderer</span></div><div class="pdesc">The WebGL renderer (antialiased, alpha enabled).</div></div>
+          <div class="row"><div class="pname">controls<span class="ptype">OrbitControls | undefined</span></div><div class="pdesc">Present after <code>addControls()</code>.</div></div>
+          <div class="row"><div class="pname">physicsWorld<span class="ptype">CANNON.World | undefined</span></div><div class="pdesc">Present after <code>enablePhysics()</code>.</div></div>
+          <div class="row"><div class="pname">clickDragThreshold<span class="ptype">number</span></div><div class="pdesc">Click-vs-drag pixel threshold. <span class="def">Default: 6</span></div></div>
+          <div class="row"><div class="pname">scale<span class="ptype">number</span></div><div class="pdesc">Scene scale factor. <span class="def">Default: 1</span></div></div>
+        </div>
+      </section>
+
+      <!-- TYPES -->
+      <section class="api" id="types">
+        <h2><span class="ico">📐</span> Types</h2>
+
+        <div class="method" id="t-lightingoptions">
+          <div class="sig"><span class="kw">interface</span> <span class="name">LightingOptions</span></div>
+          <div class="params">
+            <div class="row"><div class="pname">hemisphere<span class="ptype">false | { sky?, ground?, intensity? }</span></div><div class="pdesc">Sky/ground ambient fill. <code>false</code> to omit.</div></div>
+            <div class="row"><div class="pname">key<span class="ptype">DirectionalLightSpec</span></div><div class="pdesc">Main shadow-casting light.</div></div>
+            <div class="row"><div class="pname">fill<span class="ptype">false | DirectionalLightSpec</span></div><div class="pdesc">Opposite fill light. <code>false</code> to omit.</div></div>
+            <div class="row"><div class="pname">shadows<span class="ptype">boolean</span></div><div class="pdesc">Enable shadow mapping. <span class="def">Default: true</span></div></div>
+            <div class="row"><div class="pname">shadowArea<span class="ptype">number</span></div><div class="pdesc">Half-size of the shadow frustum. <span class="def">Default: 16</span></div></div>
+            <div class="row"><div class="pname">shadowMapSize<span class="ptype">number</span></div><div class="pdesc">Shadow map resolution. <span class="def">Default: 2048</span></div></div>
+            <div class="row"><div class="pname">toneMapping<span class="ptype">boolean</span></div><div class="pdesc">ACES Filmic tone mapping. <span class="def">Default: true</span></div></div>
+            <div class="row"><div class="pname">exposure<span class="ptype">number</span></div><div class="pdesc">Tone mapping exposure. <span class="def">Default: 1.05</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="t-directionallightspec">
+          <div class="sig"><span class="kw">interface</span> <span class="name">DirectionalLightSpec</span></div>
+          <div class="params">
+            <div class="row"><div class="pname">color<span class="ptype">ColorRepresentation</span></div><div class="pdesc">Light color.</div></div>
+            <div class="row"><div class="pname">intensity<span class="ptype">number</span></div><div class="pdesc">Light intensity.</div></div>
+            <div class="row"><div class="pname">position<span class="ptype">THREE.Vector3</span></div><div class="pdesc">Light position.</div></div>
+          </div>
+        </div>
+
+        <div class="method" id="t-orbitcontrolsconfig">
+          <div class="sig"><span class="kw">interface</span> <span class="name">OrbitControlsConfig</span></div>
+          <p class="desc">A subset of OrbitControls properties (<code>enableDamping</code>, <code>dampingFactor</code>, <code>minDistance</code>, <code>maxDistance</code>, <code>maxPolarAngle</code>, <code>enableZoom</code>, <code>enablePan</code>, <code>rotateSpeed</code>, ...) plus any extra key, all assigned onto the controls instance.</p>
+        </div>
+
+        <div class="method" id="t-animatedmodel">
+          <div class="sig"><span class="kw">interface</span> <span class="name">AnimatedModel</span></div>
+          <div class="params">
+            <div class="row"><div class="pname">model<span class="ptype">THREE.Group</span></div><div class="pdesc">The loaded model root.</div></div>
+            <div class="row"><div class="pname">animations<span class="ptype">AnimationClip[]</span></div><div class="pdesc">Parsed clips.</div></div>
+            <div class="row"><div class="pname">names<span class="ptype">string[]</span></div><div class="pdesc">Names of every clip.</div></div>
+            <div class="row"><div class="pname">mixer<span class="ptype">THREE.AnimationMixer</span></div><div class="pdesc">The driving mixer (already wired in).</div></div>
+            <div class="row"><div class="pname">actions<span class="ptype">Record&lt;string, AnimationAction&gt;</span></div><div class="pdesc">Actions keyed by clip name.</div></div>
+            <div class="row"><div class="pname">play(name, options?)<span class="ptype">(...) =&gt; AnimationAction | null</span></div><div class="pdesc">Cross-fade to a clip. See <a href="#t-playanimationoptions">PlayAnimationOptions</a>.</div></div>
+            <div class="row"><div class="pname">stop(fade?)<span class="ptype">(fade?: number) =&gt; void</span></div><div class="pdesc">Fade the current clip out.</div></div>
+          </div>
+        </div>
+
+        <div class="method" id="t-animatedmodeloptions">
+          <div class="sig"><span class="kw">interface</span> <span class="name">AnimatedModelOptions</span></div>
+          <div class="params">
+            <div class="row"><div class="pname">add<span class="ptype">boolean</span></div><div class="pdesc">Add the model to the scene. <span class="def">Default: true</span></div></div>
+            <div class="row"><div class="pname">shadows<span class="ptype">boolean</span></div><div class="pdesc">Flag meshes as shadow casters/receivers. <span class="def">Default: true</span></div></div>
+            <div class="row"><div class="pname">autoplay<span class="ptype">string | false</span></div><div class="pdesc">Clip to start (or <code>false</code> for none). <span class="def">Default: first clip</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="t-playanimationoptions">
+          <div class="sig"><span class="kw">interface</span> <span class="name">PlayAnimationOptions</span></div>
+          <div class="params">
+            <div class="row"><div class="pname">fade<span class="ptype">number</span></div><div class="pdesc">Cross-fade duration (seconds). <span class="def">Default: 0.3</span></div></div>
+            <div class="row"><div class="pname">loop<span class="ptype">boolean</span></div><div class="pdesc">Loop the clip. <span class="def">Default: true</span></div></div>
+            <div class="row"><div class="pname">clampWhenFinished<span class="ptype">boolean</span></div><div class="pdesc">Hold the last frame of a non-looping clip. <span class="def">Default: true</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="t-physicsoptions">
+          <div class="sig"><span class="kw">interface</span> <span class="name">PhysicsOptions</span></div>
+          <div class="params">
+            <div class="row"><div class="pname">gravity<span class="ptype">Vector3 | [number, number, number]</span></div><div class="pdesc">World gravity. <span class="def">Default: [0, -9.82, 0]</span></div></div>
+            <div class="row"><div class="pname">restitution<span class="ptype">number</span></div><div class="pdesc">Default contact bounciness, 0 to 1. <span class="def">Default: 0.3</span></div></div>
+            <div class="row"><div class="pname">friction<span class="ptype">number</span></div><div class="pdesc">Default contact friction. <span class="def">Default: 0.4</span></div></div>
+            <div class="row"><div class="pname">allowSleep<span class="ptype">boolean</span></div><div class="pdesc">Let resting bodies sleep. <span class="def">Default: true</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="t-physicsbodyoptions">
+          <div class="sig"><span class="kw">interface</span> <span class="name">PhysicsBodyOptions</span></div>
+          <div class="params">
+            <div class="row"><div class="pname">mass<span class="ptype">number</span></div><div class="pdesc">Mass in kg; 0 is static. <span class="def">Default: 1</span></div></div>
+            <div class="row"><div class="pname">shape<span class="ptype">"box" | "sphere"</span></div><div class="pdesc">Collision shape from the mesh. <span class="def">Default: "box"</span></div></div>
+            <div class="row"><div class="pname">linearDamping<span class="ptype">number</span></div><div class="pdesc">Linear damping. <span class="def">Default: 0.01</span></div></div>
+            <div class="row"><div class="pname">angularDamping<span class="ptype">number</span></div><div class="pdesc">Angular damping. <span class="def">Default: 0.01</span></div></div>
+          </div>
+        </div>
+
+        <div class="method" id="t-pickingresult">
+          <div class="sig"><span class="kw">interface</span> <span class="name">PickingResult</span></div>
+          <div class="params">
+            <div class="row"><div class="pname">object<span class="ptype">THREE.Object3D</span></div><div class="pdesc">The intersected object.</div></div>
+            <div class="row"><div class="pname">distance<span class="ptype">number</span></div><div class="pdesc">Distance from the camera.</div></div>
+            <div class="row"><div class="pname">point<span class="ptype">THREE.Vector3</span></div><div class="pdesc">World-space hit point.</div></div>
+            <div class="row"><div class="pname">normal<span class="ptype">THREE.Vector3</span></div><div class="pdesc">Surface normal at the hit.</div></div>
+            <div class="row"><div class="pname">uv<span class="ptype">THREE.Vector2 | undefined</span></div><div class="pdesc">UV coordinates, if available.</div></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const btn = document.getElementById('menuBtn');
+    const sidebar = document.getElementById('sidebar');
+    if (btn && sidebar) {
+      btn.addEventListener('click', () => sidebar.classList.toggle('open'));
+      sidebar.addEventListener('click', (e) => {
+        if (e.target.closest('a')) sidebar.classList.remove('open');
+      });
+    }
+  </script>
+</body>
+</html>

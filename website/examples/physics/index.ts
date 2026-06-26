@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SceneCreator } from "../../src/main";
+import { SceneCreator } from "../../../src/main";
 
 const container = document.getElementById("scene") as HTMLElement;
 
@@ -46,7 +46,8 @@ const grid = new THREE.GridHelper(44, 44, 0x6366f1, 0x1d1d2e);
 scene.scene.add(grid);
 
 // --- Physics ---
-scene.enablePhysics({ gravity: [0, -12, 0], restitution: 0.35, friction: 0.4 });
+// enablePhysics loads cannon-es on demand, so await it before adding bodies.
+await scene.enablePhysics({ gravity: [0, -12, 0], restitution: 0.35, friction: 0.4 });
 scene.addGround(0);
 
 const ACCENTS = [0x6366f1, 0x22d3ee, 0xa78bfa, 0xf472b6, 0xfbbf24, 0x38bdf8];
