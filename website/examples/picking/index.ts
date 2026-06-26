@@ -105,7 +105,7 @@ function showHover(shape: Shape | null) {
     readout.classList.add("idle");
     $("name").textContent = "nothing selected";
     ($("swatch") as HTMLElement).style.background = "#444";
-    $("dist").textContent = "—";
+    $("dist").textContent = "-";
   }
 }
 
