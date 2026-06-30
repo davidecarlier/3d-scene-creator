@@ -424,4 +424,65 @@ constructor(
 - `stopRenderLoop(): this` - Stop rendering
 - `setAdditionalRenderFn(fn: () => void): this` - Add custom render callback
 
+## Architecture
+
+`SceneCreator` is a thin, fluent **facade**. It owns no rendering logic of its
+own: it wires together a set of small, single-responsibility managers and
+delegates to them. This keeps each concern isolated and testable while
+preserving the simple chainable API: `new SceneCreator(container).addLighting().addControls()`.
+
+```
+src/
+├── classes/
+│   └── SceneCreator.ts      # Public facade: wires managers, delegates, exposes the API
+├── core/
+│   ├── SceneContext.ts      # Shared Three.js primitives (scene, renderer, camera, scale, container)
+│   ├── RenderLoop.ts        # requestAnimationFrame loop + "render only when something moved"
+│   └── RendererManager.ts   # Renderer/canvas lifecycle: attach, sizing, resize, teardown
+├── managers/
+│   ├── CameraManager.ts     # Camera creation + scripted moves (moveCamera / resetCameraPosition)
+│   ├── ControlsManager.ts   # OrbitControls
+│   ├── LightingManager.ts   # Lighting rig, shadows, tone mapping
+│   ├── AssetLoader.ts       # loadModel / loadGLTF + per-URL cache + shared GLTFLoader
+│   ├── AnimationManager.ts  # Tweens, mixers, animateModel*, loadAnimatedModel
+│   ├── PickingManager.ts    # Raycasting, pointer/touch listeners, click-vs-drag
+│   ├── PhysicsManager.ts    # Optional cannon-es world, bodies, per-frame sync
+│   └── EnvironmentManager.ts# Skybox / background
+└── types.ts                 # Public type definitions
+```
+
+### How it fits together
+
+Managers depend only on two shared pieces, never on each other's internals:
+
+- **`SceneContext`**: the bag of Three.js objects (`scene`, `renderer`,
+  `camera`, `scale`, `container`) that every manager reads from. `camera` is
+  created by `CameraManager` and `container` by `RendererManager`, then
+  published on the context for the others.
+- **`RenderLoop`**: a single shared loop. Subsystems plug in instead of
+  running their own:
+  - `onBeforeRender(fn)`: advance state each frame (tweens, mixers, physics step).
+  - `onAfterRender(fn)`: run after the draw decision (e.g. `controls.update()`).
+  - `addActivitySource(fn)`: report "something is still moving", which forces a
+    draw even when the camera is stationary. This is what powers the
+    render-only-when-needed optimization.
+
+The few cross-manager links (for example, a camera move needs to disable the
+controls) are passed as lazy accessor functions, so there are no construction-
+order or circular-dependency problems.
+
+### Disposal
+
+Each manager owns the teardown of what it created and exposes a `dispose()`.
+`SceneCreator.dispose()` simply coordinates them in order: stopping the loop,
+clearing tweens/mixers, dropping physics bodies, **removing the picking DOM
+listeners**, disposing lights/skybox/controls, and finally disposing the
+renderer and clearing the scene.
+
+### Extending
+
+To add a new capability, create a manager that takes the `SceneContext` (and the
+`RenderLoop` if it needs per-frame work), register any tick / activity sources,
+and add a thin delegating method on `SceneCreator`. You generally won't need to
+touch the existing managers.
 
