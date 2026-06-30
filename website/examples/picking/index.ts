@@ -80,12 +80,18 @@ geometries.forEach((geom, i) => {
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   mesh.name = names[i];
-  scene.scene.add(mesh);
 
-  shapes.push({ mesh, baseY: 1.4, phase: i * 1.4, targetScale: 1, hopY: 0, vy: 0, color });
+  const shape: Shape = { mesh, baseY: 1.4, phase: i * 1.4, targetScale: 1, hopY: 0, vy: 0, color };
+  // Tag pickable meshes via userData and stash the back-reference, so picking
+  // identifies objects by data rather than by name.
+  mesh.userData.pickable = true;
+  mesh.userData.shape = shape;
+
+  scene.scene.add(mesh);
+  shapes.push(shape);
 });
 
-const byMesh = (obj: THREE.Object3D) => shapes.find((s) => s.mesh === obj);
+const shapeOf = (obj: THREE.Object3D): Shape | undefined => obj.userData.shape;
 const hex = (c: number) => `#${c.toString(16).padStart(6, "0")}`;
 
 // --- Readout panel ---
@@ -110,12 +116,16 @@ function showHover(shape: Shape | null) {
 }
 
 // --- Picking ---
+// Typed options form: callbacks receive { object, intersection, originalEvent },
+// and `filter` restricts hits to the meshes we tagged as pickable.
 let hovered: Shape | null = null;
 
-scene.enablePicking(
-  // Click → recolour
-  (object) => {
-    const shape = byMesh(object);
+scene.enablePicking({
+  filter: (o) => o.userData.pickable === true,
+
+  // Click → recolour. The intersection carries the exact hit point.
+  onClick: ({ object, intersection }) => {
+    const shape = shapeOf(object);
     if (!shape) return;
     clicks++;
     $("clicks").textContent = String(clicks);
@@ -123,31 +133,47 @@ scene.enablePicking(
     shape.color = next;
     scene.animateModelColor(shape.mesh.name, hex(next), 0.5);
     shape.targetScale = 1.4; // pop, eased back in the render loop
+    if (intersection.point) shape.vy = 0; // settle any hop on direct click
     if (hovered === shape) showHover(shape);
   },
-  // Hover → highlight & inspect
-  (object) => {
-    if (hovered) {
-      hovered.mesh.material.emissive.setHex(0x000000);
-      hovered.targetScale = 1;
-    }
-    hovered = object ? byMesh(object) ?? null : null;
-    if (hovered) {
-      hovered.mesh.material.emissive.copy(hovered.mesh.material.color).multiplyScalar(0.45);
-      hovered.targetScale = 1.16;
-    }
-    container.style.cursor = hovered ? "pointer" : "grab";
-    showHover(hovered);
+
+  // Enter → highlight and start inspecting.
+  onEnter: ({ object }) => {
+    const shape = shapeOf(object);
+    if (!shape) return;
+    hovered = shape;
+    shape.mesh.material.emissive.copy(shape.mesh.material.color).multiplyScalar(0.45);
+    shape.targetScale = 1.16;
+    showHover(shape);
   },
-  // Right-click → hop
-  (object) => {
-    const shape = byMesh(object);
+
+  // Leave → drop the highlight.
+  onLeave: (object) => {
+    const shape = shapeOf(object);
+    if (shape) {
+      shape.mesh.material.emissive.setHex(0x000000);
+      shape.targetScale = 1;
+    }
+    if (hovered === shape) {
+      hovered = null;
+      showHover(null);
+    }
+  },
+
+  // Hover changed → just update the cursor affordance.
+  onHover: (e) => {
+    container.style.cursor = e ? "pointer" : "grab";
+  },
+
+  // Right-click → hop.
+  onContextMenu: ({ object }) => {
+    const shape = shapeOf(object);
     if (!shape) return;
     rclicks++;
     $("rclicks").textContent = String(rclicks);
     shape.vy = 0.34;
-  }
-);
+  },
+});
 
 // --- Per-frame motion: idle float, scale easing, and hop physics ---
 let t = 0;

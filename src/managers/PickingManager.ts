@@ -1,22 +1,30 @@
 import * as THREE from "three";
 import type { SceneContext } from "../core/SceneContext";
+import type {
+  PickingOptions,
+  PickEvent,
+  PickSourceEvent,
+  LegacyClickCallback,
+  LegacyHoverCallback,
+} from "../types";
 
 type Listener = { target: EventTarget; type: string; handler: EventListener };
 
 /**
- * Owns interactive object picking: the raycaster, pointer/touch bookkeeping,
- * and click-vs-drag discrimination. Registers its DOM listeners on the
- * attached container and tears them down on {@link dispose}.
+ * Owns interactive object picking: the raycaster, hover/enter/leave tracking,
+ * pointer/touch bookkeeping and click-vs-drag discrimination.
+ *
+ * Listeners are bound by {@link enablePicking} and fully removed by
+ * {@link disablePicking} (and {@link dispose}), so toggling picking on and off
+ * never leaks handlers. Callbacks receive a typed {@link PickEvent} carrying the
+ * object **by reference**, the full raycast intersection, and the original DOM
+ * event — so consumers don't have to rely on `object.name`.
  */
 export class PickingManager {
   raycaster: THREE.Raycaster = new THREE.Raycaster();
   mouse: THREE.Vector2 = new THREE.Vector2();
   selectedObject: THREE.Object3D | null = null;
   pickingEnabled: boolean = false;
-
-  onObjectClick?: (obj: THREE.Object3D) => void;
-  onObjectHover?: (obj: THREE.Object3D | null) => void;
-  onObjectContextMenu?: (obj: THREE.Object3D) => void;
 
   // A pointer gesture only counts as a click if it moves less than this many
   // pixels between down and up.
@@ -25,10 +33,50 @@ export class PickingManager {
   private pointerDownY: number = 0;
   private pointerDragging: boolean = false;
 
-  // Registered DOM listeners, removed on dispose to avoid leaks.
+  // Touch tap discrimination state.
+  private touchStartX: number = 0;
+  private touchStartY: number = 0;
+  private touchMoved: boolean = false;
+
+  // Active handlers + tuning for the current enablePicking() session.
+  private handlers: PickingOptions = {};
+  private recursive: boolean = true;
+  private filter?: (object: THREE.Object3D) => boolean;
+
+  // Registered DOM listeners, removed on disablePicking()/dispose().
   private listeners: Listener[] = [];
 
   constructor(private ctx: SceneContext) {}
+
+  // --- raycasting helpers ----------------------------------------------------
+
+  /** Convert a client-space point to normalized device coordinates (-1..1). */
+  private toNDC(clientX: number, clientY: number) {
+    const rect = this.ctx.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  }
+
+  /** Nearest intersection under a client point that passes the filter, or null. */
+  private raycast(clientX: number, clientY: number): THREE.Intersection | null {
+    this.toNDC(clientX, clientY);
+    this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+    const hits = this.raycaster.intersectObjects(this.ctx.scene.children, this.recursive);
+    if (!this.filter) return hits[0] ?? null;
+    for (const hit of hits) {
+      if (this.filter(hit.object)) return hit;
+    }
+    return null;
+  }
+
+  private makeEvent<E extends PickSourceEvent>(
+    intersection: THREE.Intersection,
+    originalEvent: E,
+  ): PickEvent<E> {
+    return { object: intersection.object, intersection, originalEvent };
+  }
+
+  // --- listener registration -------------------------------------------------
 
   private on<K extends keyof HTMLElementEventMap>(
     target: HTMLElement,
@@ -39,33 +87,39 @@ export class PickingManager {
     this.listeners.push({ target, type, handler: handler as EventListener });
   }
 
-  /** Convert a client-space point to normalized device coordinates (-1..1). */
-  private toNDC(clientX: number, clientY: number) {
-    const rect = this.ctx.renderer.domElement.getBoundingClientRect();
-    this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  private removeListeners() {
+    for (const { target, type, handler } of this.listeners) {
+      target.removeEventListener(type, handler);
+    }
+    this.listeners = [];
   }
 
-  private intersect() {
-    this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-    return this.raycaster.intersectObjects(this.ctx.scene.children, true);
-  }
+  // --- public API ------------------------------------------------------------
 
   /**
-   * Enable interactive object picking with mouse/touch events.
-   * @param onClickCallback - Callback when an object is clicked
-   * @param onHoverCallback - Callback when the hovered object changes
-   * @param onContextMenuCallback - Callback when an object is right-clicked
+   * Enable interactive object picking. Accepts either a typed options object
+   * (recommended) or the legacy positional form
+   * `(onClick, onHover, onContextMenu)` for backward compatibility.
    */
+  enablePicking(options?: PickingOptions): void;
   enablePicking(
-    onClickCallback?: (object: THREE.Object3D) => void,
-    onHoverCallback?: (object: THREE.Object3D | null) => void,
-    onContextMenuCallback?: (object: THREE.Object3D) => void,
-  ) {
+    onClick?: LegacyClickCallback,
+    onHover?: LegacyHoverCallback,
+    onContextMenu?: LegacyClickCallback,
+  ): void;
+  enablePicking(
+    a?: PickingOptions | LegacyClickCallback,
+    b?: LegacyHoverCallback,
+    c?: LegacyClickCallback,
+  ): void {
+    // Re-binding: drop any previous session's listeners first.
+    this.removeListeners();
+
+    this.handlers = a && typeof a === "object" ? a : this.adaptLegacy(a, b, c);
+    this.recursive = this.handlers.recursive ?? true;
+    this.filter = this.handlers.filter;
     this.pickingEnabled = true;
-    this.onObjectClick = onClickCallback;
-    this.onObjectHover = onHoverCallback;
-    this.onObjectContextMenu = onContextMenuCallback;
+    this.selectedObject = null;
 
     const container = this.ctx.container;
     if (!container) {
@@ -73,91 +127,77 @@ export class PickingManager {
       return;
     }
 
-    // Mouse move listener for hover detection
-    this.on(container, "mousemove", (event: MouseEvent) => {
-      this.toNDC(event.clientX, event.clientY);
-      const intersects = this.intersect();
-
-      if (intersects.length > 0) {
-        const picked = intersects[0].object;
-        if (picked !== this.selectedObject) {
-          this.selectedObject = picked;
-          if (this.onObjectHover) this.onObjectHover(picked);
-        }
-      } else if (this.selectedObject !== null) {
-        this.selectedObject = null;
-        if (this.onObjectHover) this.onObjectHover(null);
+    // Hover / enter / leave (mouse + pen). Touch has no hover, so skip it.
+    this.on(container, "pointermove", (event: PointerEvent) => {
+      // Drag discrimination runs for every pointer type.
+      if (!this.pointerDragging) {
+        const dx = event.clientX - this.pointerDownX;
+        const dy = event.clientY - this.pointerDownY;
+        if (Math.hypot(dx, dy) > this.clickDragThreshold) this.pointerDragging = true;
       }
+      if (event.pointerType === "touch") return;
+      this.updateHover(this.raycast(event.clientX, event.clientY), event);
     });
 
-    // Track pointer gesture distance so an orbit/pan drag never fires a click.
+    // Pointer left the canvas entirely → clear any active hover.
+    this.on(container, "pointerleave", (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      this.updateHover(null, event);
+    });
+
     this.on(container, "pointerdown", (event: PointerEvent) => {
       this.pointerDownX = event.clientX;
       this.pointerDownY = event.clientY;
       this.pointerDragging = false;
     });
-    this.on(container, "pointermove", (event: PointerEvent) => {
+
+    // Click (suppressed when the gesture was a drag). Re-raycast at the click
+    // point so the reported object/intersection are fresh and accurate.
+    this.on(container, "click", (event: MouseEvent) => {
       if (this.pointerDragging) return;
-      const dx = event.clientX - this.pointerDownX;
-      const dy = event.clientY - this.pointerDownY;
-      if (Math.hypot(dx, dy) > this.clickDragThreshold) {
-        this.pointerDragging = true;
-      }
+      const hit = this.raycast(event.clientX, event.clientY);
+      if (hit && this.handlers.onClick) this.handlers.onClick(this.makeEvent(hit, event));
     });
 
-    // Mouse click listener (suppressed when the gesture was a drag)
-    this.on(container, "click", () => {
-      if (this.pointerDragging) return;
-      if (this.selectedObject && this.onObjectClick) {
-        this.onObjectClick(this.selectedObject);
-      }
+    // Right-click / context menu (default browser menu suppressed).
+    this.on(container, "contextmenu", (event: MouseEvent) => {
+      event.preventDefault();
+      const hit = this.raycast(event.clientX, event.clientY);
+      if (hit && this.handlers.onContextMenu) this.handlers.onContextMenu(this.makeEvent(hit, event));
     });
 
-    // Touch support for mobile devices: pick on touchend only if it was a tap.
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchMoved = false;
+    // Touch: fire onClick on a tap (touchend with negligible movement).
     this.on(container, "touchstart", (event: TouchEvent) => {
       if (event.touches.length === 1) {
-        touchStartX = event.touches[0].clientX;
-        touchStartY = event.touches[0].clientY;
-        touchMoved = false;
+        this.touchStartX = event.touches[0].clientX;
+        this.touchStartY = event.touches[0].clientY;
+        this.touchMoved = false;
       } else {
-        touchMoved = true; // multi-touch = gesture, never a tap
+        this.touchMoved = true; // multi-touch = gesture, never a tap
       }
     });
     this.on(container, "touchmove", (event: TouchEvent) => {
-      if (touchMoved || event.touches.length !== 1) return;
-      const dx = event.touches[0].clientX - touchStartX;
-      const dy = event.touches[0].clientY - touchStartY;
-      if (Math.hypot(dx, dy) > this.clickDragThreshold) touchMoved = true;
+      if (this.touchMoved || event.touches.length !== 1) return;
+      const dx = event.touches[0].clientX - this.touchStartX;
+      const dy = event.touches[0].clientY - this.touchStartY;
+      if (Math.hypot(dx, dy) > this.clickDragThreshold) this.touchMoved = true;
     });
     this.on(container, "touchend", (event: TouchEvent) => {
-      if (touchMoved) return;
+      if (this.touchMoved) return;
       const touch = event.changedTouches[0];
       if (!touch) return;
-      this.toNDC(touch.clientX, touch.clientY);
-      const intersects = this.intersect();
-      if (intersects.length > 0 && this.onObjectClick) {
-        this.onObjectClick(intersects[0].object);
-      }
-    });
-
-    // Context menu (right-click) on the hovered object; default menu suppressed.
-    this.on(container, "contextmenu", (event: MouseEvent) => {
-      event.preventDefault();
-      if (this.selectedObject && this.onObjectContextMenu) {
-        this.onObjectContextMenu(this.selectedObject);
-      }
+      const hit = this.raycast(touch.clientX, touch.clientY);
+      if (hit && this.handlers.onClick) this.handlers.onClick(this.makeEvent(hit, event));
     });
   }
 
-  /** Disable interactive object picking. */
+  /** Disable picking and remove every event listener it registered. */
   disablePicking() {
+    this.removeListeners();
     this.pickingEnabled = false;
     this.selectedObject = null;
-    this.onObjectClick = undefined;
-    this.onObjectHover = undefined;
+    this.handlers = {};
+    this.filter = undefined;
   }
 
   /** Get the currently hovered/selected object. */
@@ -171,26 +211,61 @@ export class PickingManager {
    */
   pickAt(mouseX: number, mouseY: number) {
     this.mouse.set(mouseX, mouseY);
-    const intersects = this.intersect();
+    this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+    const hits = this.raycaster.intersectObjects(this.ctx.scene.children, this.recursive);
+    const intersection = this.filter ? hits.find((h) => this.filter!(h.object)) : hits[0];
 
-    if (intersects.length > 0) {
-      const intersection = intersects[0] as any;
+    if (intersection) {
+      const i = intersection as any;
       return {
-        object: intersection.object,
-        distance: intersection.distance,
-        point: intersection.point,
-        normal: intersection.normal || new THREE.Vector3(0, 1, 0),
-        uv: intersection.uv || undefined,
+        object: i.object,
+        distance: i.distance,
+        point: i.point,
+        normal: i.normal || new THREE.Vector3(0, 1, 0),
+        uv: i.uv || undefined,
       };
     }
     return null;
   }
 
   dispose() {
-    for (const { target, type, handler } of this.listeners) {
-      target.removeEventListener(type, handler);
-    }
-    this.listeners = [];
     this.disablePicking();
+  }
+
+  // --- internals -------------------------------------------------------------
+
+  /**
+   * Diff the newly-hovered object against the current one and fire
+   * leave/enter/hover callbacks accordingly. Comparison is by object identity,
+   * never by name.
+   */
+  private updateHover(hit: THREE.Intersection | null, event: MouseEvent | PointerEvent) {
+    const next = hit?.object ?? null;
+    if (next === this.selectedObject) return;
+
+    const prev = this.selectedObject;
+    if (prev && this.handlers.onLeave) this.handlers.onLeave(prev, event);
+
+    this.selectedObject = next;
+
+    if (next && hit && this.handlers.onEnter) {
+      this.handlers.onEnter(this.makeEvent(hit, event));
+    }
+    if (this.handlers.onHover) {
+      this.handlers.onHover(next && hit ? this.makeEvent(hit, event) : null);
+    }
+  }
+
+  /** Wrap the legacy positional callbacks into the typed handler shape. */
+  private adaptLegacy(
+    onClick?: LegacyClickCallback,
+    onHover?: LegacyHoverCallback,
+    onContextMenu?: LegacyClickCallback,
+  ): PickingOptions {
+    return {
+      onClick: onClick ? (e) => onClick(e.object) : undefined,
+      onHover: onHover ? (e) => onHover(e?.object ?? null) : undefined,
+      onContextMenu: onContextMenu ? (e) => onContextMenu(e.object) : undefined,
+    };
   }
 }

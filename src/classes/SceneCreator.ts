@@ -20,6 +20,9 @@ import type {
   AnimatedModelOptions,
   PhysicsOptions,
   PhysicsBodyOptions,
+  PickingOptions,
+  LegacyClickCallback,
+  LegacyHoverCallback,
 } from "../types";
 
 /**
@@ -299,13 +302,26 @@ export class SceneCreator {
   // Picking / interactions
   // ---------------------------------------------------------------------------
 
-  /** Enable interactive object picking with click/hover/right-click events. */
+  /**
+   * Enable interactive object picking. Pass a typed {@link PickingOptions}
+   * object (recommended) to get `onClick` / `onHover` / `onEnter` / `onLeave` /
+   * `onContextMenu` callbacks with `{ object, intersection, originalEvent }`,
+   * plus `recursive` and `filter` tuning. The legacy positional form
+   * `(onClick, onHover, onContextMenu)` is still supported.
+   */
+  enablePicking(options?: PickingOptions): this;
   enablePicking(
-    onClickCallback?: (object: THREE.Object3D) => void,
-    onHoverCallback?: (object: THREE.Object3D | null) => void,
-    onContextMenuCallback?: (object: THREE.Object3D) => void,
+    onClick?: LegacyClickCallback,
+    onHover?: LegacyHoverCallback,
+    onContextMenu?: LegacyClickCallback,
+  ): this;
+  enablePicking(
+    a?: PickingOptions | LegacyClickCallback,
+    b?: LegacyHoverCallback,
+    c?: LegacyClickCallback,
   ) {
-    this.picking.enablePicking(onClickCallback, onHoverCallback, onContextMenuCallback);
+    // Forward whichever form was used; PickingManager handles both.
+    (this.picking.enablePicking as (...args: unknown[]) => void)(a, b, c);
     return this;
   }
 

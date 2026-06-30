@@ -250,76 +250,98 @@ scene.animateModelOpacity("Character", 0.5, 2);
 
 ### Interactive Object Picking
 
-Enable interactive object selection with mouse click and hover events:
+`enablePicking()` wires up click, hover, enter/leave and right-click detection.
+Every callback receives a typed **`PickEvent`** — `{ object, intersection,
+originalEvent }` — so you get the picked object **by reference**, the full
+Three.js raycast intersection (point, face, distance, uv, instanceId…) and the
+DOM event that triggered it. No need to identify objects by `name`.
 
-```js
+```ts
 import { SceneCreator } from "3d-scene-creator";
 import * as THREE from "three";
 
 const scene = new SceneCreator(container);
 scene.addLighting().addControls();
 
-// Create some 3D objects...
-const geometry = new THREE.BoxGeometry(2, 2, 2);
-const material = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
-const cube = new THREE.Mesh(geometry, material);
-cube.name = "MyBox";
+const cube = new THREE.Mesh(
+  new THREE.BoxGeometry(2, 2, 2),
+  new THREE.MeshStandardMaterial({ color: 0xff6b6b })
+);
+cube.userData.pickable = true; // tag it however you like
 scene.scene.add(cube);
 
-// Enable picking with callbacks
-scene.enablePicking(
-  // Click callback
-  (object: THREE.Object3D) => {
-    console.log("Clicked:", object.name);
-    // Change color on click
-    if (object instanceof THREE.Mesh) {
-      object.material.color.set(Math.random() * 0xffffff);
-    }
+scene.enablePicking({
+  // Only consider objects you opt in — by data, not by name.
+  filter: (o) => o.userData.pickable === true,
+
+  onClick: ({ object, intersection, originalEvent }) => {
+    console.log("clicked", object, "at", intersection.point, originalEvent);
+    if (object instanceof THREE.Mesh) object.material.color.set(Math.random() * 0xffffff);
   },
-  // Hover callback
-  (object: THREE.Object3D | null) => {
-    if (object) {
-      console.log("Hovering over:", object.name);
-      // Highlight on hover
-      if (object instanceof THREE.Mesh) {
-        object.material.emissive.setHex(0xffffff);
-      }
-    } else {
-      console.log("Left object");
-    }
-  }
-);
 
-// Get the currently selected object
-const selected = scene.getSelectedObject();
+  // Fires once when the pointer moves onto an object…
+  onEnter: ({ object }) => {
+    if (object instanceof THREE.Mesh) object.material.emissive.setHex(0x333333);
+  },
+  // …and once when it leaves it.
+  onLeave: (object) => {
+    if (object instanceof THREE.Mesh) object.material.emissive.setHex(0x000000);
+  },
 
-// Programmatic picking at specific mouse coordinates
-const result = scene.pickAt(-0.5, 0.2); // Normalized coordinates (-1 to 1)
-if (result) {
-  console.log("Picked object:", result.object.name);
-  console.log("Distance:", result.distance);
-  console.log("Hit point:", result.point);
-}
+  // Fires whenever the hovered object changes (the object, or null).
+  onHover: (e) => {
+    container.style.cursor = e ? "pointer" : "default";
+  },
+
+  // Right-click (the default browser menu is suppressed while picking is on).
+  onContextMenu: ({ object }) => console.log("right-clicked", object),
+});
 ```
 
-Click and tap events are only fired when the pointer barely moves between
-press and release, so orbiting or panning the camera never triggers a spurious
-click. Tune the sensitivity (in pixels) via `clickDragThreshold` (default `6`):
+**Options**
+
+| Option | Description |
+|--------|-------------|
+| `onClick` | Left click / tap on an object |
+| `onContextMenu` | Right click on an object |
+| `onHover` | Hovered object changed (receives the `PickEvent` or `null`) |
+| `onEnter` / `onLeave` | Pointer entered / left an object (transitions, tracked by reference) |
+| `recursive` | Recurse into children when raycasting (default `true`) |
+| `filter` | Predicate; only objects for which it returns true are pickable |
+
+`enablePicking()` adds the DOM listeners; **`disablePicking()` removes them**
+(and so does `dispose()`), so toggling picking on and off never leaks handlers.
+Calling `enablePicking()` again replaces the previous session cleanly.
+
+```js
+scene.enablePicking({ onClick: (e) => console.log(e.object) });
+scene.disablePicking(); // every listener is detached
+```
+
+Click and tap events only fire when the pointer barely moves between press and
+release, so orbiting or panning never triggers a spurious click. Tune the
+sensitivity (in pixels) via `clickDragThreshold` (default `6`):
 
 ```js
 scene.clickDragThreshold = 10;
 ```
 
-A third callback fires on right-click (context menu) of the hovered object;
-the default browser menu is suppressed while picking is enabled:
+You can also query/pick imperatively:
 
 ```js
-scene.enablePicking(
-  (obj) => console.log("Clicked:", obj.name),
-  (obj) => console.log("Hovering:", obj?.name ?? "none"),
-  (obj) => console.log("Right-clicked:", obj.name) // context menu
-);
+// Currently hovered object
+const selected = scene.getSelectedObject();
+
+// Pick at specific normalized coordinates (-1 to 1)
+const result = scene.pickAt(-0.5, 0.2);
+if (result) {
+  console.log(result.object, result.distance, result.point);
+}
 ```
+
+> **Backward compatible:** the older positional form
+> `enablePicking(onClick, onHover, onContextMenu)` — where each callback
+> receives just the object — still works.
 
 ### Physics
 
@@ -407,9 +429,10 @@ constructor(
 - `animateModelOpacity(name: string, value: number, duration?: number): this`
 
 **Interactive Picking**
-- `enablePicking(onClickCallback?: (obj: Object3D) => void, onHoverCallback?: (obj: Object3D | null) => void, onContextMenuCallback?: (obj: Object3D) => void): this` - Enable object picking with click/hover/right-click events
-- `disablePicking(): this` - Disable picking
-- `getSelectedObject(): Object3D | null` - Get currently selected/hovered object
+- `enablePicking(options?: PickingOptions): this` - Enable object picking. Callbacks (`onClick`, `onContextMenu`, `onHover`, `onEnter`, `onLeave`) receive a typed `PickEvent` (`{ object, intersection, originalEvent }`); `filter` and `recursive` tune which objects are hit. Adds the DOM listeners.
+- `enablePicking(onClick?, onHover?, onContextMenu?): this` - Legacy positional form (each callback receives just the object); kept for backward compatibility
+- `disablePicking(): this` - Disable picking and remove all its event listeners
+- `getSelectedObject(): Object3D | null` - Get currently hovered object
 - `pickAt(mouseX: number, mouseY: number): PickingResult | null` - Pick object at normalized mouse coordinates
 
 **Physics**

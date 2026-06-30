@@ -175,3 +175,59 @@ export interface MouseNormalized {
   x: number;
   y: number;
 }
+
+/** The original DOM event behind a pick (mouse, pointer or touch). */
+export type PickSourceEvent = MouseEvent | PointerEvent | TouchEvent;
+
+/**
+ * Payload handed to every picking callback. Carries the picked object **by
+ * reference** plus the full raycast {@link https://threejs.org/docs/#api/en/core/Raycaster.intersectObject Intersection}
+ * (point, face, distance, uv, instanceId, …) and the original DOM event, so you
+ * never have to identify objects by `name` alone.
+ */
+export interface PickEvent<E extends PickSourceEvent = PickSourceEvent> {
+  /** The picked object (the nearest hit that passed the optional filter). */
+  object: THREE.Object3D;
+  /** The full Three.js intersection record for the hit. */
+  intersection: THREE.Intersection;
+  /** The DOM event that triggered the pick. */
+  originalEvent: E;
+}
+
+/** Callback for click / right-click style picks. */
+export type PickCallback<E extends PickSourceEvent = PickSourceEvent> = (event: PickEvent<E>) => void;
+
+/** Callback fired when the pointer enters a different object (or leaves all). */
+export type HoverCallback = (event: PickEvent<MouseEvent | PointerEvent> | null) => void;
+
+/** Callback fired when the pointer leaves a previously-hovered object. */
+export type LeaveCallback = (object: THREE.Object3D, originalEvent: MouseEvent | PointerEvent) => void;
+
+/**
+ * Handlers + tuning for {@link SceneCreator.enablePicking}. Pass any subset.
+ */
+export interface PickingOptions {
+  /** Primary (left) click on an object. */
+  onClick?: PickCallback<MouseEvent | TouchEvent>;
+  /** Right-click / context menu on an object (default browser menu suppressed). */
+  onContextMenu?: PickCallback<MouseEvent>;
+  /** Hover changed: receives the newly-hovered object, or `null` when none. */
+  onHover?: HoverCallback;
+  /** Pointer entered an object (transition from none/other → this object). */
+  onEnter?: PickCallback<MouseEvent | PointerEvent>;
+  /** Pointer left a previously-hovered object. */
+  onLeave?: LeaveCallback;
+  /** Recurse into children when raycasting (default: true). */
+  recursive?: boolean;
+  /**
+   * Only consider objects for which this returns true — e.g. tag pickable
+   * meshes via `userData` instead of relying on `name`:
+   * `filter: (o) => o.userData.pickable === true`.
+   */
+  filter?: (object: THREE.Object3D) => boolean;
+}
+
+/** Legacy positional click callback (kept for backward compatibility). */
+export type LegacyClickCallback = (object: THREE.Object3D) => void;
+/** Legacy positional hover callback (kept for backward compatibility). */
+export type LegacyHoverCallback = (object: THREE.Object3D | null) => void;

@@ -11,5 +11,11 @@ export type {
   PlayAnimationOptions,
   AnimatedModel,
   PhysicsOptions,
-  PhysicsBodyOptions
+  PhysicsBodyOptions,
+  PickingOptions,
+  PickEvent,
+  PickSourceEvent,
+  PickCallback,
+  HoverCallback,
+  LeaveCallback
 } from "./types";
